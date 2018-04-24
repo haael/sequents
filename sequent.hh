@@ -88,7 +88,7 @@ private:
 		{
 			const auto left_sans_formula = left - Singleton(formula);
 			
-			std::cout << "formula = " << formula << "; " << "left_sans_formula = " << Unfold<Formula>(left_sans_formula) << std::endl;
+			//std::cout << "formula = " << formula << "; " << "left_sans_formula = " << Unfold<Formula>(left_sans_formula) << std::endl;
 			
 			switch(formula.get_symbol())
 			{
@@ -330,14 +330,14 @@ public:
 			delete unionfind;
 	}
 	
-	mutex print_mutex;
+	//mutex print_mutex;
 	
 	bool prove(void)
 	{
-		{
+		/*{
 			lock_guard<mutex> lock(print_mutex);
 			std::cout << "prove " << Unfold<Formula>(left) << " |- " << Unfold<Formula>(right) << std::endl;
-		}
+		}*/
 		
 		//return
 		const bool result = 
@@ -347,8 +347,8 @@ public:
 		  .sort([this](const pair<const Formula&, const Formula&>& p) { return guide_equal(p.first, p.second); })
 		  .for_any([this](const pair<const Formula&, const Formula&>& p)
 			{
-				lock_guard<mutex> lock(print_mutex);
-				std::cout << "equal " << p.first << " == " << p.second << std::endl;
+				//lock_guard<mutex> lock(print_mutex);
+				//std::cout << "equal " << p.first << " == " << p.second << std::endl;
 				return equal(p.first, p.second);
 			})
 		  ||
@@ -356,7 +356,7 @@ public:
 		  .sort([this](const Formula& f) { return guide_positive(f); })
 		  .for_any([this](const Formula& f) { return breakdown(f); });
 		
-		std::cout << result << std::endl;
+		//std::cout << result << std::endl;
 		return result;
 	}
 };
@@ -385,15 +385,15 @@ void sequent_test(void)
 
 	assert(Unfold<Formula>({a(), b()}).sort([](const Formula& f) -> float { return f.total_size(); }).for_any([&a, &b](const Formula& f) -> bool { return f == b(); }));
 
-	/*assert(prove({}, {}), "Empty sequent should succeed.");
+	assert(prove({}, {}), "Empty sequent should succeed.");
 	assert(prove({a()}, {a()}), "Sequent with the same symbol on both sides must succeed.");
 	assert(!prove({a()}, {b()}), "Sequent should fail.");
 	assert(prove({a()}, {b(), a()}), "Sequent should succeed.");
 	assert(prove({a(), b()}, {a()}), "Sequent should succeed.");
 	assert(!prove({}, {b()}), "Sequent should fail.");
-	assert(!prove({}, {a()}), "Sequent should fail.");*/
+	assert(!prove({}, {a()}), "Sequent should fail.");
 	assert(!prove({Or(a(), b())}, {b()}), "Sequent should fail.");
-	/*assert(prove({And(a(), b())}, {a()}), "Sequent should succeed.");
+	assert(prove({And(a(), b())}, {a()}), "Sequent should succeed.");
 	assert(prove({}, {Or(a(), Not(a()))}), "Sequent should succeed.");
 	assert(prove({False()}, {False()}), "Sequent should succeed.");
 	assert(prove({}, {True()}), "Sequent should succeed.");
@@ -401,7 +401,8 @@ void sequent_test(void)
 	assert(prove({Impl((a(), b()))}, {Or(Not(a()), b())}), "Sequent should succeed.");
 	assert(prove({a()}, {True()}), "Sequent should succeed.");
 	assert(prove({a(), b()}, {a(), b()}), "Sequent should succeed.");
-	assert(prove({a(), b()}, {And(a(), b())}), "Sequent should succeed.");*/
+	assert(prove({a(), b()}, {b(), a()}), "Sequent should succeed.");
+	assert(prove({a(), b()}, {And(a(), b())}), "Sequent should succeed.");
 }
 
 } // namespace Logical

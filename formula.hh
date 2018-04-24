@@ -72,13 +72,13 @@ public:
 
 	bool operator==(const Formula& that) const
 	{
-#ifdef DEBUG
+#if defined(DEBUG) && ! defined(__clang__)
 		if(!this)
 			throw RuntimeError("'this' pointer is null");
 		if(!&that)
 			throw RuntimeError("'&that' pointer is null");
 #endif
-		std::cerr << "Formula compare: " << this << "  ?= " << &that << std::endl;
+		//std::cerr << "Formula compare: " << this << "  ?= " << &that << std::endl;
 		return (this == &that) || ((symbol == that.symbol) && (formula == that.formula));
 	}
 

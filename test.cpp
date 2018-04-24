@@ -41,10 +41,18 @@ extern "C" void signal_received(int sig_num)
 	Logical::thread_error = true;
 }
 
+extern "C" void segfault_received(int sig_num)
+{
+	Logical::thread_error = true;
+	abort();
+}
+
+
 int main(int argc, char* argv[])
 {
 	signal(SIGTERM, signal_received);
 	signal(SIGABRT, signal_received);
+	signal(SIGSEGV, segfault_received);
 	
 	try
 	{
