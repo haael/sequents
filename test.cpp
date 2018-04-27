@@ -41,9 +41,22 @@ extern "C" void signal_received(int sig_num)
 	Logical::thread_error = true;
 }
 
+#ifdef DEBUG
+static constexpr size_t segfault_stack_max = 256;
+void* segfault_stack[segfault_stack_max];
+#endif
+
 extern "C" void segfault_received(int sig_num)
 {
 	Logical::thread_error = true;
+	
+#ifdef DEBUG
+	size_t stack_size = execinfo::backtrace(segfault_stack, segfault_stack_max);
+	char** stack_trace = execinfo::backtrace_symbols(segfault_stack, stack_size);
+	for(size_t i = 0; i < stack_size; i++)
+		cout << " " << stack_trace[i] << endl;	
+#endif
+	
 	abort();
 }
 
@@ -56,8 +69,8 @@ int main(int argc, char* argv[])
 	
 	try
 	{
-		cout << "sync_test" << endl;
-		sync_test();
+		//cout << "sync_test" << endl;
+		//sync_test();
 		
 		cout << "collections_test" << endl;
 		collections_test();

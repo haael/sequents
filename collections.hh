@@ -151,6 +151,11 @@ extern volatile atomic_size_t max_thread_count;
 extern volatile sig_atomic_t thread_error;
 static const unsigned long wakeup_every_ms = 4000;
 
+
+template<class T> struct remove_reference_only     { };
+template<class T> struct remove_reference_only<T&> { typedef T type; };
+
+
 template <typename Collection>
 class Parallel
 {
@@ -176,6 +181,18 @@ public:
 
 	Iterator<Parallel> end(void) const { return Iterator<Parallel>(*this, size()); }
 
+	template<typename ItemType>
+	auto forward_element(const typename remove_reference_only<ItemType>::type& element) const
+	{
+		return reference_wrapper(element);
+	}
+	
+	template<typename ItemType>
+	auto forward_element(const pair<typename ItemType::first_type, typename ItemType::second_type>& element) const
+	{
+		return element;
+	}
+	
 	template <typename Callable>
 	bool run_parallel(const bool mode, const Callable& task) const
 	{
@@ -256,7 +273,7 @@ public:
 				    if(exception)
 					    rethrow_exception(exception);
 			    },
-				element));
+				forward_element<item_type>(element)));
 		}
 		
 		Thread::finalize(threads);
@@ -288,6 +305,17 @@ public:
 		return Reorder<Collection>(collection).sort_unique(weight);
 	}
 };
+
+
+/*
+template<typename PairType1, typename PairType2>
+auto Parallel::forward_element<pair<PairType1, PairType2>>(const pair<PairType1, PairType2>& element) const
+{
+	return element;
+}
+*/
+
+
 
 /*
 template <typename Collection, typename Predicate>
@@ -514,15 +542,23 @@ public:
 		return count_if(one.begin(), one.end(), [this](const value_type& item) -> bool { return !two.count(item); });
 	}
 
+	size_t count(const value_type& item) const
+	{
+		if(two.count(item)) return 0;
+		else return one.count(item);
+	}
+
 	item_type operator[](const size_t index) const
 	{
 		size_t skip = 0;
 		size_t shift = 0;
+		auto begin_iter = one.begin();
+		auto end_iter = one.end();
 		do
 		{
 			shift++;
-			skip = count_if(one.begin(), one.begin() + shift, [this](const value_type& item) -> bool { return !two.count(item); });
-		} while(shift < one.size() && skip <= index);
+			skip = count_if(begin_iter, begin_iter + shift, [this](const value_type& item) -> bool { return !two.count(item); });
+		} while(begin_iter + shift != end_iter && skip <= index);
 
 		if(skip <= index)
 			throw IndexError("Element not found for the provided index in Difference collection.", index, size());
@@ -603,7 +639,7 @@ public:
 
 	size_t count(const value_type& item_p) const
 	{
-		return count(item_p, [](const value_type& one, const value_type& two) -> bool { return one == two; }); // TODO: optimize, compare pointers
+		return 0;
 	}
 
 	template <typename Equal>
@@ -665,6 +701,8 @@ public:
 	}
 };
 
+
+
 template <typename Item>
 class Singleton
 {
@@ -693,7 +731,7 @@ public:
 
 	size_t count(const value_type& item_p) const
 	{
-		return count(item_p, [](const value_type& one, const value_type& two) -> bool { return one == two; }); // TODO: optimize, compare pointers
+		return count(item_p, [](const value_type& one, const value_type& two) -> bool { return &one == &two; });
 	}
 
 	template <typename Equal>
@@ -786,7 +824,7 @@ public:
 
 	size_t count(const value_type& item_p) const
 	{
-		return count(item_p, [](const value_type& one, const value_type& two) -> bool { return one == two; }); // TODO: optimize, compare pointers
+		return count(item_p, [](const value_type& one, const value_type& two) -> bool { return &one == &two; });
 	}
 
 	template <typename Equal>
@@ -876,7 +914,7 @@ public:
 	{
 		items = new const value_type*[item_count];
 		size_t i = 0;
-		for(const value_type& v : col)
+		for(const value_type& v : col) // FIXME: correct?
 			items[i++] = &v;
 	}
 
@@ -885,7 +923,7 @@ public:
 	{
 		items = new const value_type*[item_count];
 		size_t i = 0;
-		for(const value_type& v : col)
+		for(const value_type& v : col) // FIXME: correct?
 			items[i++] = &v;
 	}
 
@@ -905,7 +943,7 @@ public:
 
 	size_t count(const value_type& item_p) const
 	{
-		return count(item_p, [](const value_type& one, const value_type& two) -> bool { return one == two; }); // TODO: optimize, compare pointers
+		return count(item_p, [](const value_type& one, const value_type& two) -> bool { return &one == &two; });
 	}
 
 	template <typename Equal>
@@ -999,7 +1037,23 @@ public:
 		}
 		out << " }";
 	}
+
+	void print_with_addresses(ostream& out) const
+	{
+		out << "{ ";
+		bool first = true;
+		for(const auto& f : (*this))
+		{
+			if(!first)
+				out << ", ";
+			else
+				first = false;
+			out << f << " @" << (&f);
+		}
+		out << " }";
+	}
 };
+
 
 template <typename Collection1, typename Collection2>
 class Cartesian
@@ -1083,6 +1137,7 @@ inline ostream& operator<<(ostream& stream, const Unfold<Item>& f)
 #include <string>
 #include <type_traits>
 #include <iterator>
+#include <sstream>
 #include "type_name.hh"
 
 using std::array;
@@ -1094,6 +1149,8 @@ using std::string;
 using std::is_same;
 using std::iterator_traits;
 using std::random_access_iterator_tag;
+using std::stringstream;
+using std::ostream;
 
 namespace Logical
 {
@@ -1154,6 +1211,53 @@ inline void collections_concat_test(const Collection1& col1, const Collection2& 
 	{
 	}
 }
+
+struct test_item
+{
+	int x, y;
+	
+	test_item(int _x, int _y)
+	 : x(_x), y(_y)
+	{
+	}
+	
+	test_item& operator = (const test_item& that)
+	{
+		x = that.x;
+		y = that.y;
+		return *this;
+	}		
+};
+
+ostream& operator << (ostream& os, const test_item& it)
+{
+	os << "item(" << it.x << "," << it.y << ")@" << &it;
+	return os;
+}
+
+
+static inline void collections_difference_test(void)
+{
+
+	const auto a = test_item(0, 1);
+	const auto b = test_item(0, 2);
+	const auto c = test_item(1, 1);
+	const auto d = test_item(0, 1);
+	const auto e = test_item(0, 2);
+	const auto f = test_item(3, 1);
+	const auto g = test_item(3, 2);
+	
+	const auto v1 = vector<test_item>({a, b, c, d});
+	const auto v2 = Shadow<vector<test_item>>(v1);
+	const auto v3 = Singleton<test_item>(v1[2]);
+	const auto v4 = v2 - v3;
+	
+	std::cout << &c << std::endl;
+	std::cout << Unfold<test_item>(v3) << std::endl;
+	std::cout << Unfold<test_item>(v4) << std::endl;
+	assert(v4.size() == 3);
+}
+
 
 static inline void collections_address_test(void)
 {
@@ -1474,6 +1578,7 @@ inline void collections_test(void)
 	assert(type_name<decltype(u3[0])>() == "int const&");
 
 	collections_address_test();
+	collections_difference_test();
 }
 
 
