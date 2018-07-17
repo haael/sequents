@@ -21,6 +21,7 @@
 #include "errors.hh"
 #include "logical.hh"
 #include "sync.hh"
+#include "utils.hh"
 
 namespace Logical
 {
@@ -160,16 +161,27 @@ template <typename Collection>
 class Parallel
 {
 private:
-	const Collection& collection;
+	Collection collection;
 
 public:
 	typedef decltype(collection[0]) item_type;
 	typedef typename Collection::value_type value_type;
 
 	Parallel(void) = delete;
+ 
+	template<typename CollectionI>
+	Parallel(CollectionI&& col)
+	 : collection(forward<CollectionI>(col))
+	{
+	}
 
-	Parallel(const Collection& col)
-	 : collection(col)
+	Parallel(const Parallel& cp)
+	 : collection(cp.collection)
+	{
+	}
+
+	Parallel(Parallel&& mv)
+	 : collection(move(mv.collection))
 	{
 	}
 
@@ -343,7 +355,7 @@ template <typename Collection>
 class Reorder
 {
 private:
-	const Collection& collection;
+	Collection collection;
 	vector<size_t> order;
 
 	typedef pair<size_t, float> weight_record;
@@ -360,6 +372,24 @@ public:
 		order.reserve(collection.size());
 		for(size_t i = 0; i < collection.size(); i++)
 			order.push_back(i);
+	}
+
+	Reorder(Collection&& col)
+	 : collection(move(col))
+	{
+		order.reserve(collection.size());
+		for(size_t i = 0; i < collection.size(); i++)
+			order.push_back(i);
+	}
+
+	Reorder(const Reorder& cp)
+	 : collection(cp.collection), order(cp.order)
+	{
+	}
+
+	Reorder(Reorder&& mv)
+	 : collection(move(mv.collection)), order(move(mv.order))
+	{
 	}
 
 	size_t size(void) const { return order.size(); }
@@ -434,8 +464,8 @@ class Concat
 	static_assert(is_same<typename Collection1::value_type, typename Collection2::value_type>::value, "Item types of both arguments must be the same.");
 
 private:
-	const Collection1& one;
-	const Collection2& two;
+	Collection1 one;
+	Collection2 two;
 
 public:
 	typedef decltype(one[0]) item_type;
@@ -446,6 +476,18 @@ public:
 	Concat(const Collection1& p_one, const Collection2& p_two)
 	 : one(p_one)
 	 , two(p_two)
+	{
+	}
+
+	Concat(const Concat& cp)
+	 : one(cp.one)
+	 , two(cp.two)
+	{
+	}
+
+	Concat(Concat&& mv)
+	 : one(move(mv.one))
+	 , two(move(mv.two))
 	{
 	}
 
@@ -522,8 +564,8 @@ class Difference
 	static_assert(is_same<typename Collection1::value_type, typename Collection2::value_type>::value, "Item types of both arguments must be the same.");
 
 private:
-	const Collection1& one;
-	const Collection2& two;
+	Collection1 one;
+	Collection2 two;
 
 public:
 	typedef decltype(one[0]) item_type;
@@ -534,6 +576,18 @@ public:
 	Difference(const Collection1& p_one, const Collection2& p_two)
 	 : one(p_one)
 	 , two(p_two)
+	{
+	}
+
+	Difference(const Difference& cp)
+	 : one(cp.one)
+	 , two(cp.two)
+	{
+	}
+
+	Difference(Difference&& mv)
+	 : one(move(mv.one))
+	 , two(move(mv.two))
 	{
 	}
 
@@ -918,7 +972,7 @@ public:
 			items[i++] = &v;
 	}
 
-	Unfold(const initializer_list<Item>& col)
+	Unfold(const Unfold& col)
 	 : items(nullptr), item_count(col.size())
 	{
 		items = new const value_type*[item_count];
@@ -927,9 +981,15 @@ public:
 			items[i++] = &v;
 	}
 
+	Unfold(Unfold&& col)
+	 : items(col.items), item_count(col.size())
+	{
+		col.items = nullptr;
+	}
+
 	~Unfold(void)
 	{
-		delete[] items;
+		if(items) delete[] items;
 	}
 
 	size_t size(void) const { return item_count; }
@@ -1058,8 +1118,9 @@ public:
 template <typename Collection1, typename Collection2>
 class Cartesian
 {
-	const Collection1& one;
-	const Collection2& two;
+private:
+	Collection1 one;
+	Collection2 two;
 
 public:
 	typedef const pair<const typename Collection1::value_type&, const typename Collection2::value_type&> item_type;
@@ -1067,9 +1128,22 @@ public:
 
 	Cartesian(void) = delete;
 
-	Cartesian(const Collection1& p_one, const Collection2& p_two)
-	 : one(p_one)
-	 , two(p_two)
+	template<typename Collection1I, typename Collection2I>
+	Cartesian(Collection1I&& p_one, Collection2I&& p_two)
+	 : one(forward<Collection1I>(p_one))
+	 , two(forward<Collection2I>(p_two))
+	{
+	}
+
+	Cartesian(const Cartesian& cp)
+	 : one(cp.one)
+	 , two(cp.two)
+	{
+	}
+
+	Cartesian(Cartesian&& mv)
+	 : one(move(mv.one))
+	 , two(move(mv.two))
 	{
 	}
 
@@ -1138,7 +1212,6 @@ inline ostream& operator<<(ostream& stream, const Unfold<Item>& f)
 #include <type_traits>
 #include <iterator>
 #include <sstream>
-#include "type_name.hh"
 
 using std::array;
 using std::cout;
@@ -1236,6 +1309,41 @@ ostream& operator << (ostream& os, const test_item& it)
 }
 
 
+struct int_triple
+{
+	typedef int value_type;
+	typedef const int& item_type;
+	
+	const int a, b, c;
+	
+	int_triple(int _a, int _b, int _c)
+	 : a(_a), b(_b), c(_c)
+	{
+	}
+
+	size_t size(void) const
+	{
+		return 3;
+	}
+	
+	const int& operator [] (size_t index) const
+	{
+		switch(index)
+		{
+		case 0: return a;
+		case 1: return b;
+		case 2: return c;
+		default: throw IndexError("int_triple index >= 3", index, 3);
+		}
+	}
+
+	Iterator<int_triple> begin(void) const { return Iterator<int_triple>(*this, 0); }
+
+	Iterator<int_triple> end(void) const { return Iterator<int_triple>(*this, size()); }
+};
+
+
+
 static inline void collections_difference_test(void)
 {
 
@@ -1261,13 +1369,8 @@ static inline void collections_difference_test(void)
 
 static inline void collections_address_test(void)
 {
-	const int one = 1;
-	const int two = 2;
-	const int three = 3;
-	const int four = 4;
-	const int five = 5;
-	
-	const auto u = Unfold<int>({three, two, one});
+	const auto u0 = int_triple(1, 2, 3);
+	const auto u = Unfold<int>(u0);
 	
 	//std::cout << u << std::endl;
 	//u.print_addresses(std::cout);
@@ -1279,7 +1382,8 @@ static inline void collections_address_test(void)
 	//Unfold<int>(w).print_addresses(std::cout);
 	//std::cout << std::endl;
 
-	const auto z = Unfold<int>({four, five});
+	const auto z0 = int_triple(4, 5, 6);
+	const auto z = Unfold<int>(z0);
 
 	mutex m;
 
@@ -1318,7 +1422,6 @@ static inline void collections_address_test(void)
 
 	vector<pair<int, int>> us;
 	us.reserve((u * z).size());
-
 	
 	//std::cout << "parallel" << std::endl;
 	(u * z)
@@ -1352,8 +1455,38 @@ static inline void collections_address_test(void)
 }
 
 
+static inline void collections_cartesian_test(void)
+{
+	const auto v1 = int_triple(1, 2, 3);
+
+	const auto v2 = Unfold<int>(v1);
+	assert(&v1[0] == &v2[0]);
+	assert(&v1[1] == &v2[1]);
+	assert(&v1[2] == &v2[2]);
+	
+	const auto u1 = int_triple(2, 3, 4);
+	
+	const auto uv = Unfold<int>(u1) * v2;
+
+	assert(&uv[0 + 0 * 3].first == &u1[0] && &uv[0 + 0 * 3].second == &v2[0], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[0 + 0 * 3].first, &u1[0], &uv[0 + 0 * 3].second, &v2[0]).c_str());
+	assert(&uv[1 + 0 * 3].first == &u1[1] && &uv[1 + 0 * 3].second == &v2[0], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[1 + 0 * 3].first, &u1[1], &uv[1 + 0 * 3].second, &v2[0]).c_str());
+	assert(&uv[2 + 0 * 3].first == &u1[2] && &uv[2 + 0 * 3].second == &v2[0], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[2 + 0 * 3].first, &u1[2], &uv[2 + 0 * 3].second, &v2[0]).c_str());
+
+	assert(&uv[0 + 1 * 3].first == &u1[0] && &uv[0 + 1 * 3].second == &v2[1], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[0 + 1 * 3].first, &u1[0], &uv[0 + 1 * 3].second, &v2[1]).c_str());
+	assert(&uv[1 + 1 * 3].first == &u1[1] && &uv[1 + 1 * 3].second == &v2[1], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[1 + 1 * 3].first, &u1[1], &uv[1 + 1 * 3].second, &v2[1]).c_str());
+	assert(&uv[2 + 1 * 3].first == &u1[2] && &uv[2 + 1 * 3].second == &v2[1], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[2 + 1 * 3].first, &u1[2], &uv[2 + 1 * 3].second, &v2[1]).c_str());
+
+	assert(&uv[0 + 2 * 3].first == &u1[0] && &uv[0 + 2 * 3].second == &v2[2], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[0 + 2 * 3].first, &u1[0], &uv[0 + 2 * 3].second, &v2[2]).c_str());
+	assert(&uv[1 + 2 * 3].first == &u1[1] && &uv[1 + 2 * 3].second == &v2[2], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[1 + 2 * 3].first, &u1[1], &uv[1 + 2 * 3].second, &v2[2]).c_str());
+	assert(&uv[2 + 2 * 3].first == &u1[2] && &uv[2 + 2 * 3].second == &v2[2], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[2 + 2 * 3].first, &u1[2], &uv[2 + 2 * 3].second, &v2[2]).c_str());
+
+}
+
+
 inline void collections_test(void)
 {
+	collections_cartesian_test();
+	
 	auto empty = Empty<int>();
 	assert(empty.size() == 0, "Empty collection should have size = 0.");
 
@@ -1570,7 +1703,8 @@ inline void collections_test(void)
 	const auto v5d = Unfold<int>(v5);
 	assert(v5d.for_any([](int el) { return el == 1000000; }), "Wrong result of parallel computation.");
 	
-	const auto u1 = Unfold<int>({1});
+	const auto u0 = vector<int>({1});
+	const auto u1 = Unfold<int>(u0);
 	assert(type_name<decltype(u1[0])>() == "int const&");
 	const auto u2 = Shadow(u1);
 	assert(type_name<decltype(u2[0])>() == "int const&");

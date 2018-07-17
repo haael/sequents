@@ -5,6 +5,8 @@
 #ifndef LOGICAL_ERRORS_HH
 #define LOGICAL_ERRORS_HH
 
+#include <string>
+
 #ifdef DEBUG
 namespace execinfo
 {
@@ -15,6 +17,8 @@ namespace execinfo
 namespace Logical
 {
 
+using std::string;
+
 struct Error
 {
 #ifdef DEBUG
@@ -23,7 +27,7 @@ struct Error
 	size_t stack_size;
 #endif
 
-	const char* message;
+	const string message;
 
 	Error(const char* msg)
 	 : message(msg)

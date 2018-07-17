@@ -1,5 +1,8 @@
 
 
+#ifndef TYPE_NAME_HH
+#define TYPE_NAME_HH
+
 #include <type_traits>
 #include <typeinfo>
 #ifndef _MSC_VER
@@ -9,9 +12,26 @@
 #include <string>
 #include <cstdlib>
 
-template <class T>
-std::string
-type_name()
+
+namespace Logical
+{
+
+using std::string;
+using std::unique_ptr;
+
+
+template<typename... Args>
+string string_format(const string& format, Args&&... args)
+{
+    size_t size = snprintf(nullptr, 0, format.c_str(), args...) + 1;
+    unique_ptr<char[]> buf(new char[size]); 
+    snprintf(buf.get(), size, format.c_str(), forward<Args>(args)...);
+    return string(buf.get(), buf.get() + size - 1);
+}
+
+
+template<class T>
+string type_name(void)
 {
     typedef typename std::remove_reference<T>::type TR;
     std::unique_ptr<char, void(*)(void*)> own
@@ -36,3 +56,8 @@ type_name()
     return r;
 }
 
+
+} // namespace Logical
+
+
+#endif // ifndef TYPE_NAME_HH

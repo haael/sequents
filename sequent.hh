@@ -425,7 +425,8 @@ void sequent_test(void)
 	const auto b = Symbol("b");
 	const auto c = Symbol("c");
 
-	assert(Unfold<Formula>({a(), b()}).sort([](const Formula& f) -> float { return f.total_size(); }).for_any([&a, &b](const Formula& f) -> bool { return f == b(); }));
+	const auto ab = vector<Formula>({a(), b()});
+	assert(Unfold<Formula>(ab).sort([](const Formula& f) -> float { return f.total_size(); }).for_any([&a, &b](const Formula& f) -> bool { return f == b(); }));
 
 	assert(prove({}, {}), "Empty sequent should succeed.");
 	assert(prove({a()}, {a()}), "Sequent with the same symbol on both sides must succeed.");
@@ -450,6 +451,7 @@ void sequent_test(void)
 	assert(prove({a()}, {a(), b()}), "Sequent should succeed.");
 	assert(prove({Impl(a(), b()), Impl(b(), c())}, {Impl(a(), c())}), "Sequent should succeed.");
 	assert(prove({Impl(a(), b()), Impl(a(), c())}, {Impl(a(), And(b(), c()))}), "Sequent should succeed.");
+	
 }
 
 } // namespace Logical

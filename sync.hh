@@ -632,7 +632,7 @@ private:
 		pair<key_type, Accessor> operator*(void)
 		{
 			const key_type key = this->current_key();
-			return pair(key, this->trans[key]);
+			return pair(move(key), this->trans[key]);
 		}
 	};
 
@@ -652,7 +652,7 @@ private:
 		pair<key_type, mapped_type> operator*(void)
 		{
 			const key_type key = this->current_key();
-			return pair(key, this->trans[key]);
+			return pair(move(key), this->trans[key]);
 		}
 	};
 
