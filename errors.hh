@@ -145,7 +145,7 @@ struct TransactionError : public Error
 #define GET_3rd_ARG(arg1, arg2, arg3, ...) arg3
 #define assert_chooser(...) GET_3rd_ARG(__VA_ARGS__, assert_2, assert_1)
 
-#define assert(...) assert_chooser(__VA_ARGS__)(__VA_ARGS__)
+#define logical_assert(...) assert_chooser(__VA_ARGS__)(__VA_ARGS__)
 
 
 inline void do_assert(bool expr, const char* msg, int l, const char* f)

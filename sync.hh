@@ -86,7 +86,7 @@ private:
 	template <typename Fn, typename... Args>
 	static void task(Extension* extension, Fn&& fn, Args&&... args)
 	{
-		assert(extension, "Extension pointer invalid");
+		logical_assert(extension, "Extension pointer invalid");
 		
 		try
 		{
@@ -177,7 +177,7 @@ public:
 
 		for(Thread& thr : all_threads)
 		{
-			assert(!thr.running(), "Thread should not be running.");
+			logical_assert(!thr.running(), "Thread should not be running.");
 
 			if(thr.error())
 			{
@@ -800,7 +800,7 @@ static inline void sync_test_locks(void)
 		sleep_for(milliseconds(100));
 
 		bool locked = access_r.try_lock();
-		assert(locked, "Could not lock ReadLockable (thread 1).");
+		logical_assert(locked, "Could not lock ReadLockable (thread 1).");
 		sleep_for(milliseconds(100));
 		access_r.unlock();
 		sleep_for(milliseconds(100));
@@ -821,7 +821,7 @@ static inline void sync_test_locks(void)
 		sleep_for(milliseconds(100));
 
 		bool locked = access_r.try_lock();
-		assert(locked, "Could not lock ReadLockable (thread 2).");
+		logical_assert(locked, "Could not lock ReadLockable (thread 2).");
 		sleep_for(milliseconds(100));
 		access_r.unlock();
 		sleep_for(milliseconds(100));
@@ -835,14 +835,14 @@ static inline void sync_test_locks(void)
 
 		sleep_for(milliseconds(500));
 		bool locked = access.try_lock();
-		assert(!locked, "It should not be possible to lock the mutex in exclusive mode (thread 3).");
+		logical_assert(!locked, "It should not be possible to lock the mutex in exclusive mode (thread 3).");
 
 		thread3_running = false;
 	});
 
 	auto guardian_thread = Thread([&](void) {
 		sleep_for(milliseconds(4000));
-		assert(none_of({thread1_running, thread2_running, thread3_running}), "Threads using locks still running, possible deadlock.");
+		logical_assert(none_of({thread1_running, thread2_running, thread3_running}), "Threads using locks still running, possible deadlock.");
 	});
 
 	Thread::finalize({thread1, thread2, thread3, guardian_thread});
@@ -868,7 +868,7 @@ static inline void sync_test_exceptions_1(void)
 	try
 	{
 		Thread::finalize({thread1});
-		assert(false, "Exception should be thrown from the thread.");
+		logical_assert(false, "Exception should be thrown from the thread.");
 	}
 	catch(const SyncTestError& error)
 	{
@@ -890,7 +890,7 @@ static inline void sync_test_exceptions_2(void)
 	try
 	{
 		Thread::finalize({thread1, thread2});
-		assert(false, "Exception should be thrown from the thread.");
+		logical_assert(false, "Exception should be thrown from the thread.");
 	}
 	catch(const SyncTestError& error)
 	{

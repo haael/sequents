@@ -682,7 +682,7 @@ public:
 	
 	Empty(const initializer_list<Item>& e)
 	{
-		assert(e.size() == 0, "Initializer list of the Empty sequence must be empty.");
+		logical_assert(e.size() == 0, "Initializer list of the Empty sequence must be empty.");
 	}
 	
 	Empty(void) {}
@@ -1267,18 +1267,18 @@ inline void collections_concat_test(const Collection1& col1, const Collection2& 
 {
 	auto concat_1 = col1 + col2;
 
-	assert(concat_1.size() == col1.size() + col2.size(), "Wrong size.");
+	logical_assert(concat_1.size() == col1.size() + col2.size(), "Wrong size.");
 
 	for(size_t i = 0; i < col1.size(); i++)
-		assert(concat_1[i] == col1[i], "Wrong element.");
+		logical_assert(concat_1[i] == col1[i], "Wrong element.");
 
 	for(size_t i = 0; i < col2.size(); i++)
-		assert(concat_1[col1.size() + i] == col2[i], "Wrong element.");
+		logical_assert(concat_1[col1.size() + i] == col2[i], "Wrong element.");
 
 	try
 	{
 		auto g = concat_1[concat_1.size()];
-		assert(false, "Index >= 1 should raise IndexError from Concat collection.");
+		logical_assert(false, "Index >= 1 should raise IndexError from Concat collection.");
 	}
 	catch(const IndexError& ie)
 	{
@@ -1363,7 +1363,7 @@ static inline void collections_difference_test(void)
 	std::cout << &c << std::endl;
 	std::cout << Unfold<test_item>(v3) << std::endl;
 	std::cout << Unfold<test_item>(v4) << std::endl;
-	assert(v4.size() == 3);
+	logical_assert(v4.size() == 3);
 }
 
 
@@ -1388,7 +1388,7 @@ static inline void collections_address_test(void)
 	mutex m;
 
 /*
-	assert((u + z)
+	logical_assert((u + z)
 	.sort([](const int& x) -> float
 	{
 		return (float)x;
@@ -1438,7 +1438,7 @@ static inline void collections_address_test(void)
 	});
 	//std::cout << std::endl;
 	
-	assert((u * z)
+	logical_assert((u * z)
 	.sort([](const pair<const int&, const int&> x) -> float
 	{
 		return (float)(x.first + x.second);
@@ -1460,26 +1460,25 @@ static inline void collections_cartesian_test(void)
 	const auto v1 = int_triple(1, 2, 3);
 
 	const auto v2 = Unfold<int>(v1);
-	assert(&v1[0] == &v2[0]);
-	assert(&v1[1] == &v2[1]);
-	assert(&v1[2] == &v2[2]);
+	logical_assert(&v1[0] == &v2[0]);
+	logical_assert(&v1[1] == &v2[1]);
+	logical_assert(&v1[2] == &v2[2]);
 	
 	const auto u1 = int_triple(2, 3, 4);
 	
 	const auto uv = Unfold<int>(u1) * v2;
 
-	assert(&uv[0 + 0 * 3].first == &u1[0] && &uv[0 + 0 * 3].second == &v2[0], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[0 + 0 * 3].first, &u1[0], &uv[0 + 0 * 3].second, &v2[0]).c_str());
-	assert(&uv[1 + 0 * 3].first == &u1[1] && &uv[1 + 0 * 3].second == &v2[0], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[1 + 0 * 3].first, &u1[1], &uv[1 + 0 * 3].second, &v2[0]).c_str());
-	assert(&uv[2 + 0 * 3].first == &u1[2] && &uv[2 + 0 * 3].second == &v2[0], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[2 + 0 * 3].first, &u1[2], &uv[2 + 0 * 3].second, &v2[0]).c_str());
+	logical_assert(&uv[0 + 0 * 3].first == &u1[0] && &uv[0 + 0 * 3].second == &v2[0], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[0 + 0 * 3].first, &u1[0], &uv[0 + 0 * 3].second, &v2[0]).c_str());
+	logical_assert(&uv[1 + 0 * 3].first == &u1[1] && &uv[1 + 0 * 3].second == &v2[0], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[1 + 0 * 3].first, &u1[1], &uv[1 + 0 * 3].second, &v2[0]).c_str());
+	logical_assert(&uv[2 + 0 * 3].first == &u1[2] && &uv[2 + 0 * 3].second == &v2[0], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[2 + 0 * 3].first, &u1[2], &uv[2 + 0 * 3].second, &v2[0]).c_str());
 
-	assert(&uv[0 + 1 * 3].first == &u1[0] && &uv[0 + 1 * 3].second == &v2[1], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[0 + 1 * 3].first, &u1[0], &uv[0 + 1 * 3].second, &v2[1]).c_str());
-	assert(&uv[1 + 1 * 3].first == &u1[1] && &uv[1 + 1 * 3].second == &v2[1], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[1 + 1 * 3].first, &u1[1], &uv[1 + 1 * 3].second, &v2[1]).c_str());
-	assert(&uv[2 + 1 * 3].first == &u1[2] && &uv[2 + 1 * 3].second == &v2[1], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[2 + 1 * 3].first, &u1[2], &uv[2 + 1 * 3].second, &v2[1]).c_str());
+	logical_assert(&uv[0 + 1 * 3].first == &u1[0] && &uv[0 + 1 * 3].second == &v2[1], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[0 + 1 * 3].first, &u1[0], &uv[0 + 1 * 3].second, &v2[1]).c_str());
+	logical_assert(&uv[1 + 1 * 3].first == &u1[1] && &uv[1 + 1 * 3].second == &v2[1], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[1 + 1 * 3].first, &u1[1], &uv[1 + 1 * 3].second, &v2[1]).c_str());
+	logical_assert(&uv[2 + 1 * 3].first == &u1[2] && &uv[2 + 1 * 3].second == &v2[1], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[2 + 1 * 3].first, &u1[2], &uv[2 + 1 * 3].second, &v2[1]).c_str());
 
-	assert(&uv[0 + 2 * 3].first == &u1[0] && &uv[0 + 2 * 3].second == &v2[2], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[0 + 2 * 3].first, &u1[0], &uv[0 + 2 * 3].second, &v2[2]).c_str());
-	assert(&uv[1 + 2 * 3].first == &u1[1] && &uv[1 + 2 * 3].second == &v2[2], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[1 + 2 * 3].first, &u1[1], &uv[1 + 2 * 3].second, &v2[2]).c_str());
-	assert(&uv[2 + 2 * 3].first == &u1[2] && &uv[2 + 2 * 3].second == &v2[2], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[2 + 2 * 3].first, &u1[2], &uv[2 + 2 * 3].second, &v2[2]).c_str());
-
+	logical_assert(&uv[0 + 2 * 3].first == &u1[0] && &uv[0 + 2 * 3].second == &v2[2], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[0 + 2 * 3].first, &u1[0], &uv[0 + 2 * 3].second, &v2[2]).c_str());
+	logical_assert(&uv[1 + 2 * 3].first == &u1[1] && &uv[1 + 2 * 3].second == &v2[2], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[1 + 2 * 3].first, &u1[1], &uv[1 + 2 * 3].second, &v2[2]).c_str());
+	logical_assert(&uv[2 + 2 * 3].first == &u1[2] && &uv[2 + 2 * 3].second == &v2[2], string_format("0x%x != 0x%x || 0x%x != 0x%x", &uv[2 + 2 * 3].first, &u1[2], &uv[2 + 2 * 3].second, &v2[2]).c_str());
 }
 
 
@@ -1488,20 +1487,20 @@ inline void collections_test(void)
 	collections_cartesian_test();
 	
 	auto empty = Empty<int>();
-	assert(empty.size() == 0, "Empty collection should have size = 0.");
+	logical_assert(empty.size() == 0, "Empty collection should have size = 0.");
 
 	for(size_t i = 0; i < 100; i++)
 	{
 		const int k = random_int(i);
 		auto singleton_1 = Singleton<int>(k);
 
-		assert(singleton_1.size() == 1, "Singleton collection should have size = 1.");
-		assert(singleton_1[0] == k, "Wrong element returned from Singleton collection.");
+		logical_assert(singleton_1.size() == 1, "Singleton collection should have size = 1.");
+		logical_assert(singleton_1[0] == k, "Wrong element returned from Singleton collection.");
 
 		try
 		{
 			auto g = singleton_1[1];
-			assert(false, "Index >= 1 should raise IndexError from Singleton collection.");
+			logical_assert(false, "Index >= 1 should raise IndexError from Singleton collection.");
 		}
 		catch(const IndexError& ie)
 		{
@@ -1510,7 +1509,7 @@ inline void collections_test(void)
 		try
 		{
 			auto g = singleton_1[-1];
-			assert(false, "Index -1 should raise IndexError from Singleton collection.");
+			logical_assert(false, "Index -1 should raise IndexError from Singleton collection.");
 		}
 		catch(const IndexError& ie)
 		{
@@ -1526,15 +1525,15 @@ inline void collections_test(void)
 
 		auto shadow_2 = Shadow<array<int, s>>(array_2);
 
-		assert(shadow_2.size() == s, "Collection size is wrong.");
+		logical_assert(shadow_2.size() == s, "Collection size is wrong.");
 
 		for(size_t j = 0; j < s; j++)
-			assert(shadow_2[j] == random_int(i + 11 * j), "Wrong element returned.");
+			logical_assert(shadow_2[j] == random_int(i + 11 * j), "Wrong element returned.");
 
 		try
 		{
 			auto g = shadow_2[s + i];
-			assert(false, "Index >= size should raise IndexError from Singleton collection.");
+			logical_assert(false, "Index >= size should raise IndexError from Singleton collection.");
 		}
 		catch(const IndexError& ie)
 		{
@@ -1543,7 +1542,7 @@ inline void collections_test(void)
 		try
 		{
 			auto g = shadow_2[-1];
-			assert(false, "Index -1 should raise IndexError from Shadow collection.");
+			logical_assert(false, "Index -1 should raise IndexError from Shadow collection.");
 		}
 		catch(const IndexError& ie)
 		{
@@ -1559,15 +1558,15 @@ inline void collections_test(void)
 
 		auto shadow_3 = Shadow<vector<int>>(vector_3);
 
-		assert(shadow_3.size() == i, "Collection size is wrong.");
+		logical_assert(shadow_3.size() == i, "Collection size is wrong.");
 
 		for(size_t j = 0; j < i; j++)
-			assert(shadow_3[j] == random_int(i + 11 * j), "Wrong element returned.");
+			logical_assert(shadow_3[j] == random_int(i + 11 * j), "Wrong element returned.");
 
 		try
 		{
 			auto g = shadow_3[shadow_3.size() + i];
-			assert(false, "Index >= size should raise IndexError from Singleton collection.");
+			logical_assert(false, "Index >= size should raise IndexError from Singleton collection.");
 		}
 		catch(const IndexError& ie)
 		{
@@ -1576,7 +1575,7 @@ inline void collections_test(void)
 		try
 		{
 			auto g = shadow_3[-1];
-			assert(false, "Index -1 should raise IndexError from Shadow collection.");
+			logical_assert(false, "Index -1 should raise IndexError from Shadow collection.");
 		}
 		catch(const IndexError& ie)
 		{
@@ -1652,26 +1651,26 @@ inline void collections_test(void)
 	}*/
 
 	const auto b0 = Empty<int>();
-	assert(b0.size() == 0, "Wrong size.");
-	assert(b0.for_all([](int el) { return el < 10; }), "Wrong result of parallel computation.");
+	logical_assert(b0.size() == 0, "Wrong size.");
+	logical_assert(b0.for_all([](int el) { return el < 10; }), "Wrong result of parallel computation.");
 
 	const auto v1 = vector<int>{8, random_int(r++) % 10, random_int(r++) % 10, random_int(r++) % 10, random_int(r++) % 10};
 	const auto b1 = Shadow<vector<int>>(v1);
-	assert(b1.size() == v1.size(), "Wrong size.");
-	assert(b1.for_all([](int el) { return el < 10; }), "Wrong result of parallel computation.");
+	logical_assert(b1.size() == v1.size(), "Wrong size.");
+	logical_assert(b1.for_all([](int el) { return el < 10; }), "Wrong result of parallel computation.");
 
 	const auto v2 = random_int_vector(r++, 10000);
 	const auto b2 = Shadow<vector<int>>(v2);
-	assert(b2.size() == v2.size(), "Wrong size.");
-	assert(b2.for_any([](int el) { return el < 100; }), "Wrong result of parallel computation.");
+	logical_assert(b2.size() == v2.size(), "Wrong size.");
+	logical_assert(b2.for_any([](int el) { return el < 100; }), "Wrong result of parallel computation.");
 
 	const auto v3 = random_int_vector(r++, 10000);
 	const auto b3a = Shadow<vector<int>>(v3);
-	assert(b3a.size() == v3.size(), "Wrong size.");
+	logical_assert(b3a.size() == v3.size(), "Wrong size.");
 	const auto b3b = b3a.sort([](int el) { return 0.1 * el + 1.0; });
-	assert(b3b.size() == v3.size(), "Wrong size.");
+	logical_assert(b3b.size() == v3.size(), "Wrong size.");
 	for(size_t i = 0; i < b3b.size() - 1; i++)
-		assert(b3b[i] <= b3b[i + 1], "Sorting error.");
+		logical_assert(b3b[i] <= b3b[i + 1], "Sorting error.");
 	
 	const auto v4 = random_int_vector(r++, 10000);
 	const auto b4a = Shadow<vector<int>>(v4);
@@ -1679,11 +1678,11 @@ inline void collections_test(void)
 	auto v4s = unordered_set<int>();
 	for(auto el : v4)
 		v4s.insert(el);
-	assert(b4b.size() == v4s.size(), "Wrong size.");
+	logical_assert(b4b.size() == v4s.size(), "Wrong size.");
 	for(size_t i = 0; i < b4b.size() - 1; i++)
 	{
-		assert(b4b[i] <= b4b[i + 1], "Sorting error.");
-		assert(b4b[i] != b4b[i + 1], "Uniqueness error.");
+		logical_assert(b4b[i] <= b4b[i + 1], "Sorting error.");
+		logical_assert(b4b[i] != b4b[i + 1], "Uniqueness error.");
 	}
 
 	auto v5 = vector<int>();
@@ -1692,24 +1691,24 @@ inline void collections_test(void)
 	v5.push_back(1000000);
 	
 	const auto v5a = Shadow<vector<int>>(v5);
-	assert(v5a.for_all([](int el) { return el <= 1000000; }), "Wrong result of parallel computation.");
+	logical_assert(v5a.for_all([](int el) { return el <= 1000000; }), "Wrong result of parallel computation.");
 
 	const auto v5b = Shadow<vector<int>>(v5);
-	assert(v5b.for_any([](int el) { return el == 1000000; }), "Wrong result of parallel computation.");
+	logical_assert(v5b.for_any([](int el) { return el == 1000000; }), "Wrong result of parallel computation.");
 	
 	const auto v5c = Unfold<int>(v5);
-	assert(v5c.for_all([](int el) { return el <= 1000000; }), "Wrong result of parallel computation.");
+	logical_assert(v5c.for_all([](int el) { return el <= 1000000; }), "Wrong result of parallel computation.");
 
 	const auto v5d = Unfold<int>(v5);
-	assert(v5d.for_any([](int el) { return el == 1000000; }), "Wrong result of parallel computation.");
+	logical_assert(v5d.for_any([](int el) { return el == 1000000; }), "Wrong result of parallel computation.");
 	
 	const auto u0 = vector<int>({1});
 	const auto u1 = Unfold<int>(u0);
-	assert(type_name<decltype(u1[0])>() == "int const&");
+	logical_assert(type_name<decltype(u1[0])>() == "int const&");
 	const auto u2 = Shadow(u1);
-	assert(type_name<decltype(u2[0])>() == "int const&");
+	logical_assert(type_name<decltype(u2[0])>() == "int const&");
 	const auto u3 = Unfold<int>(u2);
-	assert(type_name<decltype(u3[0])>() == "int const&");
+	logical_assert(type_name<decltype(u3[0])>() == "int const&");
 
 	collections_address_test();
 	collections_difference_test();

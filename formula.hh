@@ -365,21 +365,21 @@ void formula_test(void)
 	const auto a = Symbol("a");
 	const auto b = Symbol("b");
 	
-	assert(a == a);
-	assert(a != b);
-	assert(b != a);
-	assert(b == b);
+	logical_assert(a == a);
+	logical_assert(a != b);
+	logical_assert(b != a);
+	logical_assert(b == b);
 
-	assert(a() == a());
-	assert(a() != b());
-	assert(b() != a());
-	assert(b() == b());
+	logical_assert(a() == a());
+	logical_assert(a() != b());
+	logical_assert(b() != a());
+	logical_assert(b() == b());
 
 
-	assert(a().size() == 0);
-	assert(a().total_size() == 1);
+	logical_assert(a().size() == 0);
+	logical_assert(a().total_size() == 1);
 	
-	assert(Or(a(), b()) == Or(a(), b()));
+	logical_assert(Or(a(), b()) == Or(a(), b()));
 }
 
 } // namespace Logical

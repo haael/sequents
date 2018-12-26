@@ -108,10 +108,10 @@ private:
 			std::cout << Unfold<Formula>(left_sans_formula).size() << std::endl;
 */
 
-			assert(left.count(formula));
-			assert(!left_sans_formula.count(formula));
-			assert(left_sans_formula.size() == left.size() - 1);
-			assert(Unfold<Formula>(left_sans_formula).size() == left_sans_formula.size());
+			logical_assert(left.count(formula));
+			logical_assert(!left_sans_formula.count(formula));
+			logical_assert(left_sans_formula.size() == left.size() - 1);
+			logical_assert(Unfold<Formula>(left_sans_formula).size() == left_sans_formula.size());
 
 /*			
 			std::cout << "formula = " << formula << " @" << (&formula) << ";";
@@ -173,7 +173,7 @@ private:
 			case Or:
 				return Shadow(formula)
 					.sort([this](const Formula& f) { return guide_negative(f); })
-					.run_parallel(false, [this, &left_sans_formula, &formula](auto& subformula)
+					.for_all([this, &left_sans_formula, &formula](auto& subformula)
 					{
 						return sub_prove(left_sans_formula + Singleton(subformula), right, unionfind);
 					});
@@ -184,7 +184,7 @@ private:
 			case NAnd:
 				return Shadow(formula)
 					.sort([this](const Formula& f) { return guide_negative(f); })
-					.run_parallel(false, [this, &left_sans_formula, &formula](auto& subformula)
+					.for_all([this, &left_sans_formula, &formula](auto& subformula)
 					{
 						return sub_prove(left_sans_formula, right + Singleton(subformula), unionfind);
 					});
@@ -256,7 +256,7 @@ private:
 			case And:
 				return Shadow(formula)
 					.sort([this](const Formula& f) { return guide_negative(f); })
-					.run_parallel(false, [this, &right_sans_formula, &formula](auto& subformula)
+					.for_all([this, &right_sans_formula, &formula](auto& subformula)
 					{
 						return sub_prove(left, right_sans_formula + Singleton(subformula), unionfind);
 					});
@@ -267,7 +267,7 @@ private:
 			case NAnd:
 				return Shadow(formula)
 					.sort([this](const Formula& f) { return guide_negative(f); })
-					.run_parallel(false, [this, &right_sans_formula, &formula](auto& subformula)
+					.for_all([this, &right_sans_formula, &formula](auto& subformula)
 					{
 						return sub_prove(left + Singleton(subformula), right_sans_formula, unionfind);
 					});
@@ -300,7 +300,7 @@ private:
 		{
 			const bool first_in_second =
 				Shadow(first)
-				.run_parallel(false, [this, &second](const auto& sub1)
+				.for_all([this, &second](const auto& sub1)
 				{
 					auto& parent = *this;
 					return Shadow(second)
@@ -308,7 +308,7 @@ private:
 						{
 							return parent.guide_equal(sub1, sub2); 
 						})
-						.run_parallel(true, [&parent, &sub1](const auto& sub2)
+						.for_any([&parent, &sub1](const auto& sub2)
 						{
 							return parent.equal(sub1, sub2);
 						});
@@ -316,7 +316,7 @@ private:
 			
 			const bool second_in_first =
 				Shadow(second)
-				.run_parallel(false, [this, &first](const auto& sub2)
+				.for_all([this, &first](const auto& sub2)
 				{
 					auto& parent = *this;
 					return Shadow(first)
@@ -324,7 +324,7 @@ private:
 						{
 							return parent.guide_equal(sub2, sub1);
 						})
-						.run_parallel(true, [&parent, &sub2](const auto& sub1)
+						.for_any([&parent, &sub2](const auto& sub1)
 						{
 							return parent.equal(sub2, sub1);
 						});
@@ -426,31 +426,31 @@ void sequent_test(void)
 	const auto c = Symbol("c");
 
 	const auto ab = vector<Formula>({a(), b()});
-	assert(Unfold<Formula>(ab).sort([](const Formula& f) -> float { return f.total_size(); }).for_any([&a, &b](const Formula& f) -> bool { return f == b(); }));
+	logical_assert(Unfold<Formula>(ab).sort([](const Formula& f) -> float { return f.total_size(); }).for_any([&a, &b](const Formula& f) -> bool { return f == b(); }));
 
-	assert(prove({}, {}), "Empty sequent should succeed.");
-	assert(prove({a()}, {a()}), "Sequent with the same symbol on both sides must succeed.");
-	assert(!prove({a()}, {b()}), "Sequent should fail.");
-	assert(prove({a()}, {b(), a()}), "Sequent should succeed.");
-	assert(prove({a(), b()}, {a()}), "Sequent should succeed.");
-	assert(!prove({}, {b()}), "Sequent should fail.");
-	assert(!prove({}, {a()}), "Sequent should fail.");
-	assert(!prove({Or(a(), b())}, {b()}), "Sequent should fail.");
-	assert(prove({And(a(), b())}, {a()}), "Sequent should succeed.");
-	assert(prove({}, {Or(a(), Not(a()))}), "Sequent should succeed.");
-	assert(prove({False()}, {False()}), "Sequent should succeed.");
-	assert(prove({}, {True()}), "Sequent should succeed.");
-	assert(prove({a(), Impl(a(), b())}, {b()}), "Sequent should succeed.");
-	assert(prove({Impl(a(), b())}, {Or(Not(a()), b())}), "Sequent should succeed.");
-	assert(prove({a()}, {True()}), "Sequent should succeed.");
-	assert(prove({a(), b()}, {a(), b()}), "Sequent should succeed.");
-	assert(prove({a(), b()}, {b(), a()}), "Sequent should succeed.");
-	assert(prove({a(), b()}, {And(a(), b())}), "Sequent should succeed.");
-	assert(prove({Impl(a(), b()), Impl(Not(a()), b())}, {b()}), "Sequent should succeed.");
-	assert(prove({Not(a()), a()}, {}), "Sequent should succeed.");
-	assert(prove({a()}, {a(), b()}), "Sequent should succeed.");
-	assert(prove({Impl(a(), b()), Impl(b(), c())}, {Impl(a(), c())}), "Sequent should succeed.");
-	assert(prove({Impl(a(), b()), Impl(a(), c())}, {Impl(a(), And(b(), c()))}), "Sequent should succeed.");
+	logical_assert(prove({}, {}), "Empty sequent should succeed.");
+	logical_assert(prove({a()}, {a()}), "Sequent with the same symbol on both sides must succeed.");
+	logical_assert(!prove({a()}, {b()}), "Sequent should fail.");
+	logical_assert(prove({a()}, {b(), a()}), "Sequent should succeed.");
+	logical_assert(prove({a(), b()}, {a()}), "Sequent should succeed.");
+	logical_assert(!prove({}, {b()}), "Sequent should fail.");
+	logical_assert(!prove({}, {a()}), "Sequent should fail.");
+	logical_assert(!prove({Or(a(), b())}, {b()}), "Sequent should fail.");
+	logical_assert(prove({And(a(), b())}, {a()}), "Sequent should succeed.");
+	logical_assert(prove({}, {Or(a(), Not(a()))}), "Sequent should succeed.");
+	logical_assert(prove({False()}, {False()}), "Sequent should succeed.");
+	logical_assert(prove({}, {True()}), "Sequent should succeed.");
+	logical_assert(prove({a(), Impl(a(), b())}, {b()}), "Sequent should succeed.");
+	logical_assert(prove({Impl(a(), b())}, {Or(Not(a()), b())}), "Sequent should succeed.");
+	logical_assert(prove({a()}, {True()}), "Sequent should succeed.");
+	logical_assert(prove({a(), b()}, {a(), b()}), "Sequent should succeed.");
+	logical_assert(prove({a(), b()}, {b(), a()}), "Sequent should succeed.");
+	logical_assert(prove({a(), b()}, {And(a(), b())}), "Sequent should succeed.");
+	logical_assert(prove({Impl(a(), b()), Impl(Not(a()), b())}, {b()}), "Sequent should succeed.");
+	logical_assert(prove({Not(a()), a()}, {}), "Sequent should succeed.");
+	logical_assert(prove({a()}, {a(), b()}), "Sequent should succeed.");
+	logical_assert(prove({Impl(a(), b()), Impl(b(), c())}, {Impl(a(), c())}), "Sequent should succeed.");
+	logical_assert(prove({Impl(a(), b()), Impl(a(), c())}, {Impl(a(), And(b(), c()))}), "Sequent should succeed.");
 	
 }
 

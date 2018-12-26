@@ -242,29 +242,29 @@ static inline void unionfind_test(void)
 	static const uintptr_t b = 1;
 	static const uintptr_t c = 2;
 	
-	assert(compare_cache.equal(a, a), "(round 1) a = 1 should equal a = 1");
-	assert(compare_cache.equal(a, b), "(round 1) a = 1 should equal b = 1");
-	assert(!compare_cache.equal(a, c), "(round 1) a = 1 shouldn't equal c = 2");
+	logical_assert(compare_cache.equal(a, a), "(round 1) a = 1 should equal a = 1");
+	logical_assert(compare_cache.equal(a, b), "(round 1) a = 1 should equal b = 1");
+	logical_assert(!compare_cache.equal(a, c), "(round 1) a = 1 shouldn't equal c = 2");
 
-	assert(compare_cache.equal(b, a), "(round 1) b = 1 should equal a = 1");
-	assert(compare_cache.equal(b, b), "(round 1) b = 1 should equal b = 1");
-	assert(!compare_cache.equal(b, c), "(round 1) b = 1 shouldn't equal c = 2");
+	logical_assert(compare_cache.equal(b, a), "(round 1) b = 1 should equal a = 1");
+	logical_assert(compare_cache.equal(b, b), "(round 1) b = 1 should equal b = 1");
+	logical_assert(!compare_cache.equal(b, c), "(round 1) b = 1 shouldn't equal c = 2");
 
-	assert(!compare_cache.equal(c, a), "(round 1) c = 2 shouldn't equal a = 1");
-	assert(!compare_cache.equal(c, b), "(round 1) c = 2 shouldn't equal b = 1");
-	assert(compare_cache.equal(c, c), "(round 1) c = 2 should equal c = 2");
+	logical_assert(!compare_cache.equal(c, a), "(round 1) c = 2 shouldn't equal a = 1");
+	logical_assert(!compare_cache.equal(c, b), "(round 1) c = 2 shouldn't equal b = 1");
+	logical_assert(compare_cache.equal(c, c), "(round 1) c = 2 should equal c = 2");
 
-	assert(compare_cache.equal(a, a), "(round 2) a = 1 should equal a = 1");
-	assert(compare_cache.equal(a, b), "(round 2) a = 1 should equal b = 1");
-	assert(!compare_cache.equal(a, c), "(round 2) a = 1 shouldn't equal c = 2");
+	logical_assert(compare_cache.equal(a, a), "(round 2) a = 1 should equal a = 1");
+	logical_assert(compare_cache.equal(a, b), "(round 2) a = 1 should equal b = 1");
+	logical_assert(!compare_cache.equal(a, c), "(round 2) a = 1 shouldn't equal c = 2");
 
-	assert(compare_cache.equal(b, a), "(round 2) b = 1 should equal a = 1");
-	assert(compare_cache.equal(b, b), "(round 2) b = 1 should equal b = 1");
-	assert(!compare_cache.equal(b, c), "(round 2) b = 1 shouldn't equal c = 2");
+	logical_assert(compare_cache.equal(b, a), "(round 2) b = 1 should equal a = 1");
+	logical_assert(compare_cache.equal(b, b), "(round 2) b = 1 should equal b = 1");
+	logical_assert(!compare_cache.equal(b, c), "(round 2) b = 1 shouldn't equal c = 2");
 
-	assert(!compare_cache.equal(c, a), "(round 2) c = 2 shouldn't equal a = 1");
-	assert(!compare_cache.equal(c, b), "(round 2) c = 2 shouldn't equal b = 1");
-	assert(compare_cache.equal(c, c), "(round 2) c = 2 should equal c = 2");
+	logical_assert(!compare_cache.equal(c, a), "(round 2) c = 2 shouldn't equal a = 1");
+	logical_assert(!compare_cache.equal(c, b), "(round 2) c = 2 shouldn't equal b = 1");
+	logical_assert(compare_cache.equal(c, c), "(round 2) c = 2 should equal c = 2");
 }
 
 
