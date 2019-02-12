@@ -5,10 +5,10 @@
 
 #include <chrono>
 #include <exception>
+#include <functional>
 #include <initializer_list>
 #include <mutex>
 #include <utility>
-#include <functional>
 
 #include "errors.hh"
 #include "logical.hh"
@@ -18,21 +18,21 @@ namespace Logical
 
 using std::adopt_lock_t;
 using std::atomic_bool;
+using std::condition_variable;
 using std::current_exception;
 using std::defer_lock_t;
 using std::exception_ptr;
 using std::forward;
 using std::initializer_list;
 using std::move;
+using std::mutex;
 using std::pair;
+using std::reference_wrapper;
 using std::rethrow_exception;
 using std::thread;
 using std::try_to_lock_t;
 using std::unique_lock;
-using std::reference_wrapper;
-using std::mutex;
-using std::condition_variable;
-
+using std::vector;
 
 template <typename A, typename B>
 using chrono_duration = std::chrono::duration<A, B>;
@@ -40,12 +40,11 @@ using chrono_duration = std::chrono::duration<A, B>;
 template <typename A, typename B>
 using chrono_time_point = std::chrono::time_point<A, B>;
 
-template<typename key, typename value>
+template <typename key, typename value>
 using unordered_map_sane = std::unordered_map<key, value>;
 
-template<typename key>
+template <typename key>
 using unordered_set_sane = std::unordered_set<key>;
-
 
 class Thread : public thread
 {
@@ -57,14 +56,14 @@ private:
 	{
 		exception_ptr error;
 		atomic_bool running;
-		
+
 		Extension(bool r)
-		: error(nullptr), running(r)
+		 : error(nullptr)
+		 , running(r)
 		{
 		}
-
 	};
-	
+
 	Extension* extension;
 
 public:
@@ -74,7 +73,7 @@ public:
 			return nullptr;
 		return extension->error;
 	}
-	
+
 	bool running(void) const
 	{
 		if(!extension)
@@ -87,7 +86,7 @@ private:
 	static void task(Extension* extension, Fn&& fn, Args&&... args)
 	{
 		logical_assert(extension, "Extension pointer invalid");
-		
+
 		try
 		{
 			fn(args...);
@@ -97,7 +96,7 @@ private:
 			unique_lock<mutex> lock(finished_access);
 			extension->error = current_exception();
 		}
-		
+
 		{
 			unique_lock<mutex> lock(finished_access);
 			extension->running = false;
@@ -109,23 +108,23 @@ public:
 	Thread(void) noexcept
 	{
 	}
-	
+
 	template <typename Fn, typename... Args>
 	explicit Thread(Fn&& fn, Args&&... args)
 	{
 		extension = new Extension(true);
 		thread::operator=(thread(task<Fn, Args...>, extension, fn, args...));
 	}
-	
+
 	Thread(const Thread&) = delete;
-	
+
 	Thread(Thread&& other) noexcept
 	 : extension(other.extension)
 	 , thread(static_cast<thread&&>(other))
 	{
 		other.extension = nullptr;
 	}
-	
+
 	Thread& operator=(Thread&& rhs) noexcept
 	{
 		thread::operator=(static_cast<thread&&>(rhs));
@@ -133,31 +132,31 @@ public:
 		rhs.extension = nullptr;
 		return *this;
 	}
-	
+
 	Thread& operator=(const Thread&) = delete;
-	
+
 	void join(void)
 	{
 		thread::join();
 		if(error())
 			rethrow_exception(error());
 	}
-	
+
 	void raw_join(void)
 	{
 		thread::join();
 	}
-	
+
 	template <typename Collection>
-	static void finalize(Collection&& all_threads)
+	static void finalize(Collection& all_threads)
 	{
 		bool running = true;
 		exception_ptr error = nullptr;
-		
+
 		while(running)
 		{
 			unique_lock<mutex> lock(finished_access);
-			
+
 			running = false;
 
 			for(Thread& thr : all_threads)
@@ -170,7 +169,7 @@ public:
 					break;
 				}
 			}
-						
+
 			if(running)
 				finished.wait(lock);
 		}
@@ -185,7 +184,7 @@ public:
 				break;
 			}
 		}
-		
+
 		if(!error)
 		{
 			for(Thread& thr : all_threads)
@@ -200,12 +199,12 @@ public:
 			rethrow_exception(error);
 		}
 	}
-	
+
 	static void finalize(initializer_list<reference_wrapper<Thread>>&& all_threads)
 	{
-		finalize<initializer_list<reference_wrapper<Thread>>>(move(all_threads));
+		finalize(move(all_threads));
 	}
-	
+
 	~Thread(void)
 	{
 		if(extension)
@@ -213,13 +212,11 @@ public:
 	}
 };
 
-
 #ifndef LOGICAL_SYNC_HH_thread_static_vars
 #define LOGICAL_SYNC_HH_thread_static_vars
 mutex Thread::finished_access;
 condition_variable Thread::finished;
 #endif
-
 
 template <typename SharedMutex>
 class ReadLockable
@@ -244,12 +241,21 @@ public:
 	}
 
 	ReadLockable& operator=(const ReadLockable&) = delete;
-	
-	SharedMutex& write_lockable(void) { return access; }
 
-	void lock(void) { access.lock_shared(); }
+	SharedMutex& write_lockable(void)
+	{
+		return access;
+	}
 
-	bool try_lock(void) { return access.try_lock_shared(); }
+	void lock(void)
+	{
+		access.lock_shared();
+	}
+
+	bool try_lock(void)
+	{
+		return access.try_lock_shared();
+	}
 
 	template <typename Duration>
 	bool try_lock_for(Duration&& timeout_duration)
@@ -263,7 +269,10 @@ public:
 		return access.try_lock_shared_until(forward<Time>(timeout_time));
 	}
 
-	void unlock(void) { access.unlock_shared(); }
+	void unlock(void)
+	{
+		access.unlock_shared();
+	}
 };
 
 template <typename SharedMutex>
@@ -325,7 +334,10 @@ public:
 	{
 	}
 
-	bool is_upgraded(void) const { return (bool)write_lock; }
+	bool is_upgraded(void) const
+	{
+		return (bool)write_lock;
+	}
 
 	unique_lock<SharedMutex>& write(void)
 	{
@@ -359,12 +371,12 @@ public:
 	{
 		if(write_lock)
 			delete write_lock;
-		//unique_lock<ReadLockable<SharedMutex>>::~unique_lock(); FIXME
+		// unique_lock<ReadLockable<SharedMutex>>::~unique_lock(); FIXME
 	}
 };
 
-
-template <typename Map, typename SharedMutex, template <typename KeyType, typename MappedType> typename InternalMap = unordered_map_sane, template <typename KeyType> typename InternalSet = unordered_set_sane>
+template <typename Map, typename SharedMutex, template <typename KeyType, typename MappedType> typename InternalMap = unordered_map_sane,
+    template <typename KeyType> typename InternalSet = unordered_set_sane>
 class Transaction
 {
 public:
@@ -391,12 +403,12 @@ private:
 		{
 		}
 
-		bool operator == (mapped_type value)
+		bool operator==(mapped_type value)
 		{
 			return (mapped_type)(*this) == value;
 		}
 
-		bool operator == (Accessor& accessor)
+		bool operator==(Accessor& accessor)
 		{
 			return (mapped_type)(*this) == (mapped_type)accessor;
 		}
@@ -408,7 +420,10 @@ private:
 			return trans.writes[key] = value;
 		}
 
-		mapped_type operator=(Accessor& accessor) { return (*this) = (mapped_type)accessor; }
+		mapped_type operator=(Accessor& accessor)
+		{
+			return (*this) = (mapped_type)accessor;
+		}
 
 		operator mapped_type(void)
 		{
@@ -565,7 +580,10 @@ private:
 			}
 		}
 
-		bool completed(void) { return mode == Mode::END; }
+		bool completed(void)
+		{
+			return mode == Mode::END;
+		}
 
 	public:
 		Iterator(Transaction& t, Mode m)
@@ -597,7 +615,10 @@ private:
 			    && ((mode == Mode::READS) ? (reads_iterator == other.reads_iterator) : true);
 		}
 
-		bool operator!=(const Iterator& other) const { return !((*this) == other); }
+		bool operator!=(const Iterator& other) const
+		{
+			return !((*this) == other);
+		}
 
 		bool operator<=(const Iterator& other) const
 		{
@@ -609,11 +630,20 @@ private:
 			                  && ((mode == Mode::READS) ? (reads_iterator <= other.reads_iterator) : true)));
 		}
 
-		bool operator<(const Iterator& other) const { return (*this) != other && (*this) <= other; }
+		bool operator<(const Iterator& other) const
+		{
+			return (*this) != other && (*this) <= other;
+		}
 
-		bool operator>=(const Iterator& other) const { return other <= (*this); }
+		bool operator>=(const Iterator& other) const
+		{
+			return other <= (*this);
+		}
 
-		bool operator>(const Iterator& other) const { return (*this) != other && (*this) <= other; }
+		bool operator>(const Iterator& other) const
+		{
+			return (*this) != other && (*this) <= other;
+		}
 	};
 
 	class MutableIterator : public Iterator
@@ -680,17 +710,35 @@ public:
 		// erases.reserve(1);
 	}
 
-	iterator begin(void) { return MutableIterator(*this, Mode::WRITES); }
+	iterator begin(void)
+	{
+		return MutableIterator(*this, Mode::WRITES);
+	}
 
-	iterator end(void) { return MutableIterator(*this, Mode::END); }
+	iterator end(void)
+	{
+		return MutableIterator(*this, Mode::END);
+	}
 
-	const_iterator cbegin(void) { return ConstIterator(*this, Mode::WRITES); }
+	const_iterator cbegin(void)
+	{
+		return ConstIterator(*this, Mode::WRITES);
+	}
 
-	const_iterator cend(void) { return ConstIterator(*this, Mode::END); }
+	const_iterator cend(void)
+	{
+		return ConstIterator(*this, Mode::END);
+	}
 
-	iterator find(key_type key) { return MutableIterator(*this, key); }
+	iterator find(key_type key)
+	{
+		return MutableIterator(*this, key);
+	}
 
-	const_iterator find(key_type key) const { return ConstIterator(*this, key); }
+	const_iterator find(key_type key) const
+	{
+		return ConstIterator(*this, key);
+	}
 
 	size_t count(key_type key)
 	{
@@ -713,22 +761,28 @@ public:
 		}
 	}
 
-	size_t size(void) { return back_map.size() - erases.size() + writes.size(); }
+	size_t size(void)
+	{
+		return back_map.size() - erases.size() + writes.size();
+	}
 
-	Accessor operator[](key_type key) { return Accessor(*this, key); }
+	Accessor operator[](key_type key)
+	{
+		return Accessor(*this, key);
+	}
 
 	template <typename Test>
 	void commit_transaction(Test&& test)
 	{
 		InternalMap<key_type, mapped_type> writes_unwind;
 		InternalSet<key_type> erases_unwind;
-
+		
 		for(const pair<key_type, mapped_type>& key_value : writes)
 		{
 			unique_lock<SharedMutex> lock(access_mutex.write_lockable());
 			back_map[key_value.first] = key_value.second;
 		}
-
+		
 		for(key_type key : erases)
 		{
 			unique_lock<SharedMutex> lock(access_mutex.write_lockable());
@@ -751,31 +805,32 @@ public:
 		}
 	}
 
-	~Transaction(void) {}
+	~Transaction(void)
+	{
+	}
 };
-}
+} // namespace Logical
 
 #ifdef DEBUG
 
-#include <shared_mutex>
 #include <algorithm>
+#include <shared_mutex>
 
 namespace Logical
 {
 
-using std::chrono::milliseconds;
-using std::shared_mutex;
-using std::this_thread::sleep_for;
 using std::none_of;
+using std::shared_mutex;
 using std::unordered_map;
-//using std::unordered_set;
+using std::chrono::milliseconds;
+using std::this_thread::sleep_for;
+// using std::unordered_set;
 using std::vector;
 
-
-template<typename Collection>
+template <typename Collection>
 static inline bool none_of(Collection&& collection)
 {
-	return none_of(collection.begin(), collection.end(), [](bool e){ return e; });
+	return none_of(collection.begin(), collection.end(), [](bool e) { return e; });
 }
 
 static inline bool none_of(initializer_list<bool>&& collection)
@@ -864,7 +919,7 @@ static inline void sync_test_exceptions_1(void)
 		throw SyncTestError();
 		sleep_for(milliseconds(500));
 	});
-	
+
 	try
 	{
 		Thread::finalize({thread1});
@@ -882,11 +937,9 @@ static inline void sync_test_exceptions_2(void)
 		throw SyncTestError();
 		sleep_for(milliseconds(500));
 	});
-	
-	auto thread2 = Thread([&](void) {
-		sleep_for(milliseconds(5000));
-	});
-	
+
+	auto thread2 = Thread([&](void) { sleep_for(milliseconds(5000)); });
+
 	try
 	{
 		Thread::finalize({thread1, thread2});
@@ -897,17 +950,15 @@ static inline void sync_test_exceptions_2(void)
 	}
 }
 
-
-
 static inline void sync_test_transaction_1(void)
 {
 	shared_mutex table_mutex;
 	unordered_map<size_t, size_t> table;
 	table.reserve(100);
-	
+
 	for(size_t i = 0; i < 100; i++)
 		table[i] = i;
-	
+
 	const size_t max_failures = 5;
 	size_t failures = 0;
 	while(true)
@@ -915,13 +966,12 @@ static inline void sync_test_transaction_1(void)
 		try
 		{
 			Transaction<unordered_map<size_t, size_t>, shared_mutex> store(table, table_mutex);
-			
+
 			for(size_t i = 0; i < 100; i++)
 				if(i % 2 == 1)
 					store[i] = store[i - 1] + 2;
-			
-			store.commit_transaction([](auto& store)->bool
-			{
+
+			store.commit_transaction([](auto& store) -> bool {
 				for(size_t i = 0; i < 100; i++)
 				{
 					if(i % 2 == 1)
@@ -945,41 +995,37 @@ static inline void sync_test_transaction_1(void)
 				throw htte;
 		}
 	}
-
 }
-
 
 static inline void sync_test_transaction_2(void)
 {
 	shared_mutex table_mutex;
 	unordered_map<size_t, size_t> table;
 	table.reserve(110);
-	
+
 	for(size_t i = 0; i < 110; i++)
 		table[i] = i;
-	
+
 	const size_t max_failures = 10;
-	
-	const auto task = [&](const size_t j)
-	{
+
+	const auto task = [&](const size_t j) {
 		size_t failures = 0;
 		while(true)
 		{
 			try
 			{
 				Transaction<unordered_map<size_t, size_t>, shared_mutex> store(table, table_mutex);
-				
+
 				for(size_t i = 10 * j; i < 10 * (j + 1) + 10; i++)
 					store[i] = j;
-				
-				store.commit_transaction([j](auto& store)->bool
-				{
+
+				store.commit_transaction([j](auto& store) -> bool {
 					for(size_t i = 10 * j; i < 10 * (j + 1) + 10; i++)
 						if(!(store[i] == j))
 							return false;
 					return true;
 				});
-				
+
 				break;
 			}
 			catch(const TransactionError& htte)
@@ -989,16 +1035,15 @@ static inline void sync_test_transaction_2(void)
 			}
 		}
 	};
-	
+
 	vector<Thread> threads;
 	threads.reserve(10);
-	
+
 	for(size_t j = 0; j < 10; j++)
 		threads.push_back(Thread(task, (size_t)j));
-	
+
 	Thread::finalize(threads);
 }
-
 
 static inline void sync_test(void)
 {
@@ -1014,7 +1059,7 @@ static inline void sync_test(void)
 	sync_test_transaction_2();
 }
 
-}
+} // namespace Logical
 
 #endif // DEBUG
 

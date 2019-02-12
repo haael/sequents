@@ -1,418 +1,340 @@
 
-#ifndef SEQUENT_HH
-#define SEQUENT_HH
+#ifndef LOGICAL_SEQUENT_HH
+#define LOGICAL_SEQUENT_HH
 
-
-
-
-#include "logical.hh"
-#include "formula.hh"
 #include "collections.hh"
+#include "errors.hh"
+#include "formula.hh"
+#include "logical.hh"
 #include "unionfind.hh"
 
-
-namespace Logical {
-
+namespace Logical
+{
 
 using std::pair;
 
-
 static inline float fabs(float x)
 {
-	if(x >= 0) return x;
-	else return -x;
+	if(x >= 0)
+		return x;
+	else
+		return -x;
 }
 
 
-static mutex print_mutex;
-
-template<typename LeftShadow, typename RightShadow>
 class Sequent
 {
 private:
 	class UnionFind;
-	
+
 	UnionFind* unionfind;
 	bool toplevel;
-	Shadow<LeftShadow> left;
-	Shadow<RightShadow> right;
-	
-	Sequent(const LeftShadow& l, const RightShadow& r, UnionFind* uf)
-	 : left(l), right(r), unionfind(uf), toplevel(false)
+	Unfold<Formula> left;
+	Unfold<Formula> right;
+
+	template<typename LeftInitializer, typename RightInitializer>
+	Sequent(LeftInitializer&& l, RightInitializer&& r, UnionFind* uf)
+	 : left(forward<LeftInitializer>(l))
+	 , right(forward<RightInitializer>(r))
+	 , unionfind(uf)
+	 , toplevel(false)
 	{
 	}
 
 protected:
 	float guide_positive(const Formula& formula)
 	{
-		return -formula.total_size();
+		return formula.total_size();
 	}
-	
+
 	float guide_negative(const Formula& formula)
 	{
 		return formula.total_size();
 	}
-	
+
 	float guide_equal(const Formula& first, const Formula& second)
 	{
 		return (first.total_size() + second.total_size()) * (1.0f + fabs(float(first.total_size()) - float(second.total_size())));
 	}
 
 private:
-	template<typename Left, typename Right>
-	static bool sub_prove(Left&& l, Right&& r, UnionFind* uf)
+	template <typename LeftInitializer, typename RightInitializer>
+	static bool sub_prove(LeftInitializer&& l, RightInitializer&& r, UnionFind* uf)
 	{
-		const auto ll = Unfold<Formula>(l);
-		const auto rr = Unfold<Formula>(r);
-		auto s = Sequent<Unfold<Formula>, Unfold<Formula>>(ll, rr, uf);
-		return s.prove();
+		return Sequent(forward<LeftInitializer>(l), forward<RightInitializer>(r), uf).prove();
 	}
-	
+
 	bool breakdown(const Formula& formula)
 	{
-		/*
-		{
-			lock_guard<mutex> lock(print_mutex);
-			std::cerr << "breakdown: " << Unfold<Formula>(left) << " " << Unfold<Formula>(right) << " " << formula << std::endl;
-			std::cerr << "left =";
-			for(const auto& f : left)
-				std::cerr << " " << (&f);
-			std::cerr << std::endl;
-			std::cerr << "right =";
-			for(const auto& f : right)
-				std::cerr << " " << (&f);
-			std::cerr << std::endl;
-			std::cerr << "formula = " << (&formula) << std::endl;
-		}
-		*/
-		
-		//if(left.count(formula, [this](const Formula& one, const Formula& two) -> bool { return equal(one, two); }))
+		//cerr << "breakdown: " << formula << endl;
+
 		if(left.count(formula))
 		{
-			const auto singleton_formula = Singleton(formula);
+			const auto singleton_formula = Singleton<Formula>(formula);
 			const auto left_sans_formula = left - singleton_formula;
-
-/*
-			std::cout << left.count(formula) << std::endl;
-			std::cout << left_sans_formula.count(formula) << std::endl;
-			std::cout << left_sans_formula.size() << std::endl;
-
-			//const auto ufx = Unfold<Formula>(left_sans_formula);
-			//ufx.print(std::cout);
-			//std::cout << ufx.size() << std::endl;
-			std::cout << Unfold<Formula>(left_sans_formula).size() << std::endl;
-
-			std::cout << left_sans_formula.count(formula) << std::endl;
-			std::cout << left_sans_formula.size() << std::endl;
-			std::cout << left.size() << std::endl;
-			std::cout << Unfold<Formula>(left_sans_formula).size() << std::endl;
-*/
 
 			logical_assert(left.count(formula));
 			logical_assert(!left_sans_formula.count(formula));
 			logical_assert(left_sans_formula.size() == left.size() - 1);
 			logical_assert(Unfold<Formula>(left_sans_formula).size() == left_sans_formula.size());
 
-/*			
-			std::cout << "formula = " << formula << " @" << (&formula) << ";";
-			std::cout << " (" << left_sans_formula.size() << ") left_sans_formula = ";
-			Unfold<Formula>(left_sans_formula).print_with_addresses(std::cout);
-			std::cout << ";";
-			std::cout << " (" << left.size() << ") left = ";
-			Unfold<Formula>(left).print_with_addresses(std::cout);
-			std::cout << ";";
-			std::cout << std::endl;
-*/
-		
 			switch(formula.get_symbol())
 			{
 			case True:
 				return sub_prove(left_sans_formula, right, unionfind);
-			
+
 			case False:
 				return true;
-			
+
 			case Not:
-				return sub_prove(left_sans_formula, right + Singleton(formula[0]), unionfind);
-			
+				return sub_prove(left_sans_formula, right + Singleton<Formula>(formula[0]), unionfind);
+
 			case RImpl:
-				return Shadow(formula)
-					.sort([this](const Formula& f) { return guide_negative(f); })
-					.for_any([this, &left_sans_formula, &formula](auto& subformula)
-					{
-						if(&subformula == &formula[0])
-							return sub_prove(left_sans_formula + Singleton(formula[0]), right, unionfind);
-						else if(&subformula == &formula[1])
-							return sub_prove(left_sans_formula, right + Singleton(formula[1]), unionfind);
-						else
-							throw RuntimeError("None of the implication subformulas identical to the formula provided.");
-					});
-			
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)).for_any([this, &left_sans_formula, &formula](auto& subformula) {
+					if(&subformula == &formula[0])
+						return sub_prove(left_sans_formula + Singleton<Formula>(formula[0]), right, unionfind);
+					else if(&subformula == &formula[1])
+						return sub_prove(left_sans_formula, right + Singleton<Formula>(formula[1]), unionfind);
+					else
+						throw RuntimeError("None of the implication subformulas identical to the formula provided.");
+				});
+
 			case Impl:
-				return Shadow(formula)
-					.sort([this](const Formula& f) { return guide_negative(f); })
-					.for_any([this, &left_sans_formula, &formula](auto& subformula)
-					{
-						if(&subformula == &formula[1])
-							return sub_prove(left_sans_formula + Singleton(formula[1]), right, unionfind);
-						else if(&subformula == &formula[0])
-							return sub_prove(left_sans_formula, right + Singleton(formula[0]), unionfind);
-						else
-							throw RuntimeError("None of the implication subformulas identical to the formula provided.");
-					});
-			
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)).for_any([this, &left_sans_formula, &formula](auto& subformula) {
+					if(&subformula == &formula[1])
+						return sub_prove(left_sans_formula + Singleton<Formula>(formula[1]), right, unionfind);
+					else if(&subformula == &formula[0])
+						return sub_prove(left_sans_formula, right + Singleton<Formula>(formula[0]), unionfind);
+					else
+						throw RuntimeError("None of the implication subformulas identical to the formula provided.");
+				});
+
 			case NRImpl:
-				return sub_prove(left_sans_formula + Singleton(formula[0]), right + Singleton(formula[1]), unionfind);
-			
+				return sub_prove(left_sans_formula + Singleton<Formula>(formula[0]), right + Singleton<Formula>(formula[1]), unionfind);
+
 			case NImpl:
-				return sub_prove(left_sans_formula + Singleton(formula[1]), right + Singleton(formula[0]), unionfind);
-			
+				return sub_prove(left_sans_formula + Singleton<Formula>(formula[1]), right + Singleton<Formula>(formula[0]), unionfind);
+
 			case And:
-				return sub_prove(left_sans_formula + Shadow(formula), right, unionfind);
-			
+				return sub_prove(left_sans_formula + Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)), right, unionfind);
+
 			case Or:
-				return Shadow(formula)
-					.sort([this](const Formula& f) { return guide_negative(f); })
-					.for_all([this, &left_sans_formula, &formula](auto& subformula)
-					{
-						return sub_prove(left_sans_formula + Singleton(subformula), right, unionfind);
-					});
-			
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula))
+				    .sort([this](const Formula& f) { return guide_negative(f); })
+				    .for_all([this, &left_sans_formula, &formula](
+				                 auto& subformula) { return sub_prove(left_sans_formula + Singleton<Formula>(subformula), right, unionfind); });
+
 			case NOr:
-				return sub_prove(left_sans_formula, right + Shadow(formula), unionfind);
-			
+				return sub_prove(left_sans_formula, right + Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)), unionfind);
+
 			case NAnd:
-				return Shadow(formula)
-					.sort([this](const Formula& f) { return guide_negative(f); })
-					.for_all([this, &left_sans_formula, &formula](auto& subformula)
-					{
-						return sub_prove(left_sans_formula, right + Singleton(subformula), unionfind);
-					});
-			
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula))
+				    .sort([this](const Formula& f) { return guide_positive(f); })
+				    .for_all([this, &left_sans_formula, &formula](
+				                 auto& subformula) { return sub_prove(left_sans_formula, right + Singleton<Formula>(subformula), unionfind); });
+
 			default:
 				return false;
+				// throw UnsupportedConnectiveError("Unsupported connective.", formula.get_symbol());
 			}
-			
+
 			throw RuntimeError("Should not be here.");
 		}
-		
-		//if(right.count(formula, [this](const Formula& one, const Formula& two) -> bool { return equal(one, two); }))
+
 		if(right.count(formula))
 		{
-			const auto singleton_formula = Singleton(formula);
+			const auto singleton_formula = Singleton<Formula>(formula);
 			const auto right_sans_formula = right - singleton_formula;
 
-			/*{
-				lock_guard<mutex> lock(print_mutex);
-				std::cout << "  right: " <<  formula << std::endl;
-			}*/
-			
 			switch(formula.get_symbol())
 			{
 			case False:
 				return sub_prove(left, right_sans_formula, unionfind);
-			
+
 			case True:
 				return true;
-			
+
 			case Not:
-				return sub_prove(left + Singleton(formula[0]), right_sans_formula, unionfind);
-			
+				return sub_prove(left + Singleton<Formula>(formula[0]), right_sans_formula, unionfind);
+
 			case NRImpl:
-				return Shadow(formula)
-					.sort([this](const Formula& f) { return guide_negative(f); })
-					.for_any([this, &right_sans_formula, &formula](auto& subformula)
-					{
-						if(&subformula == &formula[0])
-							return sub_prove(right_sans_formula + Singleton(formula[0]), right, unionfind);
-						else if(&subformula == &formula[1])
-							return sub_prove(right_sans_formula, right + Singleton(formula[1]), unionfind);
-						else
-							throw RuntimeError("None of the implication subformulas identical to the formula provided.");
-					});
-			
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)).for_any([this, &right_sans_formula, &formula](auto& subformula) {
+					if(&subformula == &formula[0])
+						return sub_prove(right_sans_formula + Singleton<Formula>(formula[0]), right, unionfind);
+					else if(&subformula == &formula[1])
+						return sub_prove(right_sans_formula, right + Singleton<Formula>(formula[1]), unionfind);
+					else
+						throw RuntimeError("None of the implication subformulas identical to the formula provided.");
+				});
+
 			case NImpl:
-				return Shadow(formula)
-					.sort([this](const Formula& f) { return guide_negative(f); })
-					.for_any([this, &right_sans_formula, &formula](auto& subformula)
-					{
-						if(&subformula == &formula[1])
-							return sub_prove(right_sans_formula + Singleton(formula[1]), right, unionfind);
-						else if(&subformula == &formula[0])
-							return sub_prove(right_sans_formula, right + Singleton(formula[0]), unionfind);
-						else
-							throw RuntimeError("None of the implication subformulas identical to the formula provided.");
-					});
-			
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)).for_any([this, &right_sans_formula, &formula](auto& subformula) {
+					if(&subformula == &formula[1])
+						return sub_prove(right_sans_formula + Singleton<Formula>(formula[1]), right, unionfind);
+					else if(&subformula == &formula[0])
+						return sub_prove(right_sans_formula, right + Singleton<Formula>(formula[0]), unionfind);
+					else
+						throw RuntimeError("None of the implication subformulas identical to the formula provided.");
+				});
+
 			case Impl:
-				return sub_prove(left + Singleton(formula[0]), right_sans_formula + Singleton(formula[1]), unionfind);
-			
+				return sub_prove(left + Singleton<Formula>(formula[0]), right_sans_formula + Singleton<Formula>(formula[1]), unionfind);
+
 			case RImpl:
-				return sub_prove(left + Singleton(formula[1]), right_sans_formula + Singleton(formula[0]), unionfind);
-			
+				return sub_prove(left + Singleton<Formula>(formula[1]), right_sans_formula + Singleton<Formula>(formula[0]), unionfind);
+
 			case Or:
-				return sub_prove(left, right_sans_formula + Shadow(formula), unionfind);
-			
+				return sub_prove(left, right_sans_formula + Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)), unionfind);
+
 			case And:
-				return Shadow(formula)
-					.sort([this](const Formula& f) { return guide_negative(f); })
-					.for_all([this, &right_sans_formula, &formula](auto& subformula)
-					{
-						return sub_prove(left, right_sans_formula + Singleton(subformula), unionfind);
-					});
-			
-			case NOr:
-				return sub_prove(left + Shadow(formula), right_sans_formula, unionfind);
-			
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula))
+				    .sort([this](const Formula& f) { return guide_positive(f); })
+				    .for_all([this, &right_sans_formula, &formula](
+				                 auto& subformula) { return sub_prove(left, right_sans_formula + Singleton<Formula>(subformula), unionfind); });
+
 			case NAnd:
-				return Shadow(formula)
-					.sort([this](const Formula& f) { return guide_negative(f); })
-					.for_all([this, &right_sans_formula, &formula](auto& subformula)
-					{
-						return sub_prove(left + Singleton(subformula), right_sans_formula, unionfind);
-					});
-			
+				return sub_prove(left + Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)), right_sans_formula, unionfind);
+
+			case NOr:
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula))
+				    .sort([this](const Formula& f) { return guide_negative(f); })
+				    .for_all([this, &right_sans_formula, &formula](
+				                 auto& subformula) { return sub_prove(left + Singleton<Formula>(subformula), right_sans_formula, unionfind); });
+
 			default:
 				return false;
+				// throw UnsupportedConnectiveError("Unsupported connective.", formula.get_symbol());
 			}
-			
+
 			throw RuntimeError("Should not be here.");
 		}
-		
+
 		throw RuntimeError("Formula not found on left nor right side of the sequent.");
 	}
-	
+
 	bool equal(const Formula& first, const Formula& second)
 	{
+		//cerr << "equal: " << first << " == " << second << endl;
 		if(unionfind)
 			return unionfind->equal(first, second);
 		else
 			return formulas_equal(first, second);
 	}
-	
+
 	bool formulas_equal(const Formula& first, const Formula& second)
 	{
-		if(first.get_symbol() != second.get_symbol())
+		static const auto commutative_symbols = unordered_set<Symbol, SymbolHash>({And, Or, NAnd, NOr, Xor, NXor, Equiv, NEquiv});
+		static const auto idempotent_symbols = unordered_set<Symbol, SymbolHash>({And, Or, NAnd, NOr});
+
+		const auto& first_symbol = first.get_symbol();
+		const auto& second_symbol = second.get_symbol();
+
+		if(first_symbol != second_symbol)
 			return false;
 		else if(first == second)
 			return true;
-		else
+		else if(commutative_symbols.count(first_symbol))
 		{
-			const bool first_in_second =
-				Shadow(first)
-				.for_all([this, &second](const auto& sub1)
-				{
-					auto& parent = *this;
-					return Shadow(second)
-						.sort([&parent, &sub1](const auto& sub2)
-						{
-							return parent.guide_equal(sub1, sub2); 
-						})
-						.for_any([&parent, &sub1](const auto& sub2)
-						{
-							return parent.equal(sub1, sub2);
-						});
-				});
-			
-			const bool second_in_first =
-				Shadow(second)
-				.for_all([this, &first](const auto& sub2)
-				{
-					auto& parent = *this;
-					return Shadow(first)
-						.sort([&parent, &sub2](const auto& sub1)
-						{
-							return parent.guide_equal(sub2, sub1);
-						})
-						.for_any([&parent, &sub2](const auto& sub1)
-						{
-							return parent.equal(sub2, sub1);
-						});
-				});
-			
+			if(!idempotent_symbols.count(first_symbol) && first.size() != second.size())
+				return false;
+
+			const bool first_in_second = Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(first)).for_all([this, &second](const auto& sub1)
+			{
+				auto& parent = *this;
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(second))
+				    .sort([&parent, &sub1](const auto& sub2) { return parent.guide_equal(sub1, sub2); })
+				    .for_any([&parent, &sub1](const auto& sub2) { return parent.equal(sub1, sub2); });
+			});
+
+			const bool second_in_first = Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(second)).for_all([this, &first](const auto& sub2)
+			{
+				auto& parent = *this;
+				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(first))
+				    .sort([&parent, &sub2](const auto& sub1) { return parent.guide_equal(sub2, sub1); })
+				    .for_any([&parent, &sub2](const auto& sub1) { return parent.equal(sub2, sub1); });
+			});
+
 			return first_in_second && second_in_first;
 		}
-		
-		throw RuntimeError("Unreachable code.");
+		else if(!first_symbol.is_relation() && !first_symbol.is_quantifier())
+		{
+			if(first.size() != second.size())
+				return false;
+
+			return Zip<CompoundFormula, CompoundFormula>(static_cast<const CompoundFormula&>(first), static_cast<const CompoundFormula&>(second))
+			    .sort([this](const auto& p) { return -guide_equal(p.first, p.second); })
+			    .for_all([this](const auto& p) { return equal(p.first, p.second); });
+		}
+		else if(!first_symbol.is_relation() && first_symbol.is_quantifier())
+		{
+			throw RuntimeError("Not implemented."); // TODO
+		}
+		else if(first_symbol.is_relation())
+		{
+			throw RuntimeError("Not implemented."); // TODO
+		}
+		else
+		{
+			throw RuntimeError("Unsupported case.");
+		}
 	}
 
 	class UnionFind : public CompareCache<Formula>
 	{
 	private:
 		Sequent& sequent;
-	
+
 	protected:
 		bool value_compare(const Formula& one, const Formula& two)
 		{
 			return sequent.formulas_equal(one, two);
 		}
-	
+
 	public:
 		UnionFind(Sequent& s)
 		 : sequent(s)
 		{
 		}
 	};
-	
+
 public:
-	Sequent(const initializer_list<Formula>& l, const initializer_list<Formula>& r, bool usecache = false)
-	 : left(l), right(r), unionfind(usecache ? new UnionFind(*this) : nullptr), toplevel(true)
-	{
-	}
-	
-	Sequent(const LeftShadow& l, const RightShadow& r, bool usecache = true)
-	 : left(l), right(r), unionfind(usecache ? new UnionFind(*this) : nullptr), toplevel(true)
+	template<typename LeftInitializer, typename RightInitializer>
+	Sequent(LeftInitializer&& l, RightInitializer&& r, bool usecache=true)
+	 : left(forward<LeftInitializer>(l))
+	 , right(forward<RightInitializer>(r))
+	 , unionfind(usecache ? new UnionFind(*this) : nullptr)
+	 , toplevel(true)
 	{
 	}
 	
 	~Sequent(void)
 	{
-		if(toplevel && unionfind)
+		if(unionfind && toplevel)
 			delete unionfind;
 	}
 	
-	//mutex print_mutex;
-	
 	bool prove(void)
 	{
-		/*{
-			lock_guard<mutex> lock(print_mutex);
-			std::cout << "prove " << Unfold<Formula>(left) << " |- " << Unfold<Formula>(right) << std::endl;
-		}*/
+		//cerr << "prove " << (&left) << ", " << (&right) << endl;
+		//cerr << left << " |- " << right << endl;
 		
-		return
-		//const bool result = 
-		 (left.size() == 0 && right.size() == 0)
-		  ||
-		 (left * right)
-		  .sort([this](const pair<const Formula&, const Formula&>& p) { return guide_equal(p.first, p.second); })
-		  .for_any([this](const pair<const Formula&, const Formula&>& p)
-			{
-				//lock_guard<mutex> lock(print_mutex);
-				//std::cout << " equal " << p.first << " == " << p.second << std::endl;
-				return equal(p.first, p.second);
-			})
-		  ||
-		 (left + right)
-		  .sort([this](const Formula& f) { return guide_positive(f); })
-		  .for_any([this](const Formula& f) { return breakdown(f); });
-		
-		//std::cout << result << std::endl;
-		//return result;
+		return (left.size() == 0 && right.size() == 0)
+		    || (left * right)
+		           .sort([this](const pair<const Formula&, const Formula&>& p) { return guide_equal(p.first, p.second); })
+		           .for_any([this](const pair<const Formula&, const Formula&>& p) { return equal(p.first, p.second); })
+		    || (left + right)
+		           .sort([this](const Formula& f) { return (left.count(f) ? guide_negative(f) : 0) + (right.count(f) ? guide_positive(f) : 0); })
+		           .for_any([this](const Formula& f) { return breakdown(f); });
 	}
 };
 
-bool prove(const initializer_list<Formula>& l, const initializer_list<Formula>& r)
+
+inline bool prove(const initializer_list<Formula>& l, const initializer_list<Formula>& r)
 {
-	const auto ll = Unfold<Formula>(l);
-	const auto rr = Unfold<Formula>(r);
-	auto s = Sequent<Unfold<Formula>, Unfold<Formula>>(ll, rr);
-	return s.prove();
+	return Sequent(l, r).prove();
 }
 
-
 } // namespace Logical
-
 
 #ifdef DEBUG
 
@@ -421,42 +343,58 @@ namespace Logical
 
 void sequent_test(void)
 {
-	const auto a = Symbol("a");
-	const auto b = Symbol("b");
-	const auto c = Symbol("c");
+	try
+	{
+		const auto a = ConnectiveSymbol("a");
+		const auto b = ConnectiveSymbol("b");
+		const auto c = ConnectiveSymbol("c");
+		
+		const auto ab = vector<Formula>({a(), b()});
+		logical_assert(Unfold<Formula>(ab).sort([](const Formula& f) -> float { return f.total_size(); }).for_any([&a, &b](const Formula& f) -> bool { return f == b(); }));
+		
+        logical_assert(prove({}, {}), "Empty sequent should succeed.");
+        logical_assert(prove({a()}, {a()}), "Sequent with the same symbol on both sides must succeed.");
+        logical_assert(!prove({a()}, {b()}), "Sequent should fail.");
+        logical_assert(prove({a()}, {b(), a()}), "Sequent should succeed.");
+        logical_assert(prove({a(), b()}, {a()}), "Sequent should succeed.");
+		
+        logical_assert(!prove({}, {b()}), "Sequent should fail.");
+        logical_assert(!prove({}, {a()}), "Sequent should fail.");
+        logical_assert(!prove({Or(a(), b())}, {b()}), "Sequent should fail.");
+        logical_assert(prove({And(a(), b())}, {a()}), "Sequent should succeed.");
+        logical_assert(prove({}, {Or(a(), Not(a()))}), "Sequent should succeed.");
+        logical_assert(prove({False()}, {False()}), "Sequent should succeed.");
+        logical_assert(prove({}, {True()}), "Sequent should succeed.");
+        logical_assert(prove({a(), Impl(a(), b())}, {b()}), "Sequent should succeed.");
+        logical_assert(prove({Impl(a(), b())}, {Or(Not(a()), b())}), "Sequent should succeed.");
+        logical_assert(prove({a()}, {True()}), "Sequent should succeed.");
+        logical_assert(prove({a(), b()}, {a(), b()}), "Sequent should succeed.");
+        logical_assert(prove({a(), b()}, {b(), a()}), "Sequent should succeed.");
+        logical_assert(prove({a(), b()}, {And(a(), b())}), "Sequent should succeed.");
+        logical_assert(prove({Impl(a(), b()), Impl(Not(a()), b())}, {b()}), "Sequent should succeed.");
+        logical_assert(prove({Not(a()), a()}, {}), "Sequent should succeed.");
+        logical_assert(prove({a()}, {a(), b()}), "Sequent should succeed.");
+        logical_assert(prove({Impl(a(), b()), Impl(b(), c())}, {Impl(a(), c())}), "Sequent should succeed.");
+        logical_assert(prove({Impl(a(), b()), Impl(a(), c())}, {Impl(a(), And(b(), c()))}), "Sequent should succeed.");
+		
+		logical_assert(!prove({Impl(a(), b())}, {Impl(b(), a())}), "Sequent of the form `a->b |- b->a` should fail.");
+        logical_assert(prove({a() | b(), ~a()}, {b()}), "Sequent should succeed.");
+		
+		const auto x = Variable("x");
+		const auto y = Variable("y");
 
-	const auto ab = vector<Formula>({a(), b()});
-	logical_assert(Unfold<Formula>(ab).sort([](const Formula& f) -> float { return f.total_size(); }).for_any([&a, &b](const Formula& f) -> bool { return f == b(); }));
-
-	logical_assert(prove({}, {}), "Empty sequent should succeed.");
-	logical_assert(prove({a()}, {a()}), "Sequent with the same symbol on both sides must succeed.");
-	logical_assert(!prove({a()}, {b()}), "Sequent should fail.");
-	logical_assert(prove({a()}, {b(), a()}), "Sequent should succeed.");
-	logical_assert(prove({a(), b()}, {a()}), "Sequent should succeed.");
-	logical_assert(!prove({}, {b()}), "Sequent should fail.");
-	logical_assert(!prove({}, {a()}), "Sequent should fail.");
-	logical_assert(!prove({Or(a(), b())}, {b()}), "Sequent should fail.");
-	logical_assert(prove({And(a(), b())}, {a()}), "Sequent should succeed.");
-	logical_assert(prove({}, {Or(a(), Not(a()))}), "Sequent should succeed.");
-	logical_assert(prove({False()}, {False()}), "Sequent should succeed.");
-	logical_assert(prove({}, {True()}), "Sequent should succeed.");
-	logical_assert(prove({a(), Impl(a(), b())}, {b()}), "Sequent should succeed.");
-	logical_assert(prove({Impl(a(), b())}, {Or(Not(a()), b())}), "Sequent should succeed.");
-	logical_assert(prove({a()}, {True()}), "Sequent should succeed.");
-	logical_assert(prove({a(), b()}, {a(), b()}), "Sequent should succeed.");
-	logical_assert(prove({a(), b()}, {b(), a()}), "Sequent should succeed.");
-	logical_assert(prove({a(), b()}, {And(a(), b())}), "Sequent should succeed.");
-	logical_assert(prove({Impl(a(), b()), Impl(Not(a()), b())}, {b()}), "Sequent should succeed.");
-	logical_assert(prove({Not(a()), a()}, {}), "Sequent should succeed.");
-	logical_assert(prove({a()}, {a(), b()}), "Sequent should succeed.");
-	logical_assert(prove({Impl(a(), b()), Impl(b(), c())}, {Impl(a(), c())}), "Sequent should succeed.");
-	logical_assert(prove({Impl(a(), b()), Impl(a(), c())}, {Impl(a(), And(b(), c()))}), "Sequent should succeed.");
-	
+		logical_assert(prove({Equal(x, x)}, {Equal(x, x)}));
+		//logical_assert(!prove({Equal(x, x)}, {Equal(y, y)}));
+	}
+	catch(const UnsupportedConnectiveError& error)
+	{
+		cout << "UnsupportedConnectiveError.symbol = " << error.symbol << endl;
+		throw error;
+	}
 }
 
 } // namespace Logical
 
 #endif // DEBUG
 
-
-#endif // SEQUENT_HH
+#endif // LOGICAL_SEQUENT_HH
