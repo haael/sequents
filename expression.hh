@@ -330,7 +330,7 @@ public:
 	}
 	operator bool(void) const
 	{
-		return 0 <= index && index < parent.size();
+		return index < parent.size();
 	}
 };
 
