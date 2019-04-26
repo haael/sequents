@@ -500,8 +500,7 @@ public:
 			weights.push_back(weight_record(i, weight(collection[i])));
 
 		std::sort(weights.begin(), weights.end(), [](const weight_record& one, const weight_record& two) -> bool { return one.second < two.second; });
-		auto past_end
-		    = unique(weights.begin(), weights.end(), [](const weight_record& one, const weight_record& two) -> bool { return one.second == two.second; });
+		auto past_end = unique(weights.begin(), weights.end(), [](const weight_record& one, const weight_record& two) -> bool { return one.second == two.second; });
 		weights.erase(past_end, weights.end());
 
 		order.clear();

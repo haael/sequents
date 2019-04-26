@@ -22,6 +22,18 @@ static inline float fabs(float x)
 }
 
 
+static inline Shadow<CompoundFormula> ShadowOfCompoundFormula(const Formula& formula)
+{
+	return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula));
+}
+
+
+static inline Zip<CompoundFormula, CompoundFormula> ZipOfCompoundFormula(const Formula& first, const Formula& second)
+{
+	return Zip<CompoundFormula, CompoundFormula>(static_cast<const CompoundFormula&>(first), static_cast<const CompoundFormula&>(second));
+}
+
+
 class Sequent
 {
 private:
@@ -90,7 +102,7 @@ private:
 				return sub_prove(left_sans_formula, right + Singleton<Formula>(formula[0]), unionfind);
 
 			case RImpl:
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)).for_any([this, &left_sans_formula, &formula](auto& subformula) {
+				return ShadowOfCompoundFormula(formula).for_any([this, &left_sans_formula, &formula](auto& subformula) {
 					if(&subformula == &formula[0])
 						return sub_prove(left_sans_formula + Singleton<Formula>(formula[0]), right, unionfind);
 					else if(&subformula == &formula[1])
@@ -100,7 +112,7 @@ private:
 				});
 
 			case Impl:
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)).for_any([this, &left_sans_formula, &formula](auto& subformula) {
+				return ShadowOfCompoundFormula(formula).for_any([this, &left_sans_formula, &formula](auto& subformula) {
 					if(&subformula == &formula[1])
 						return sub_prove(left_sans_formula + Singleton<Formula>(formula[1]), right, unionfind);
 					else if(&subformula == &formula[0])
@@ -116,19 +128,19 @@ private:
 				return sub_prove(left_sans_formula + Singleton<Formula>(formula[1]), right + Singleton<Formula>(formula[0]), unionfind);
 
 			case And:
-				return sub_prove(left_sans_formula + Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)), right, unionfind);
+				return sub_prove(left_sans_formula + ShadowOfCompoundFormula(formula), right, unionfind);
 
 			case Or:
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula))
+				return ShadowOfCompoundFormula(formula)
 				    .sort([this](const Formula& f) { return guide_negative(f); })
 				    .for_all([this, &left_sans_formula, &formula](
 				                 auto& subformula) { return sub_prove(left_sans_formula + Singleton<Formula>(subformula), right, unionfind); });
 
 			case NOr:
-				return sub_prove(left_sans_formula, right + Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)), unionfind);
+				return sub_prove(left_sans_formula, right + ShadowOfCompoundFormula(formula), unionfind);
 
 			case NAnd:
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula))
+				return ShadowOfCompoundFormula(formula)
 				    .sort([this](const Formula& f) { return guide_positive(f); })
 				    .for_all([this, &left_sans_formula, &formula](
 				                 auto& subformula) { return sub_prove(left_sans_formula, right + Singleton<Formula>(subformula), unionfind); });
@@ -158,7 +170,7 @@ private:
 				return sub_prove(left + Singleton<Formula>(formula[0]), right_sans_formula, unionfind);
 
 			case NRImpl:
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)).for_any([this, &right_sans_formula, &formula](auto& subformula) {
+				return ShadowOfCompoundFormula(formula).for_any([this, &right_sans_formula, &formula](auto& subformula) {
 					if(&subformula == &formula[0])
 						return sub_prove(right_sans_formula + Singleton<Formula>(formula[0]), right, unionfind);
 					else if(&subformula == &formula[1])
@@ -168,7 +180,7 @@ private:
 				});
 
 			case NImpl:
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)).for_any([this, &right_sans_formula, &formula](auto& subformula) {
+				return ShadowOfCompoundFormula(formula).for_any([this, &right_sans_formula, &formula](auto& subformula) {
 					if(&subformula == &formula[1])
 						return sub_prove(right_sans_formula + Singleton<Formula>(formula[1]), right, unionfind);
 					else if(&subformula == &formula[0])
@@ -184,19 +196,19 @@ private:
 				return sub_prove(left + Singleton<Formula>(formula[1]), right_sans_formula + Singleton<Formula>(formula[0]), unionfind);
 
 			case Or:
-				return sub_prove(left, right_sans_formula + Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)), unionfind);
+				return sub_prove(left, right_sans_formula + ShadowOfCompoundFormula(formula), unionfind);
 
 			case And:
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula))
+				return ShadowOfCompoundFormula(formula)
 				    .sort([this](const Formula& f) { return guide_positive(f); })
 				    .for_all([this, &right_sans_formula, &formula](
 				                 auto& subformula) { return sub_prove(left, right_sans_formula + Singleton<Formula>(subformula), unionfind); });
 
 			case NAnd:
-				return sub_prove(left + Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula)), right_sans_formula, unionfind);
+				return sub_prove(left + ShadowOfCompoundFormula(formula), right_sans_formula, unionfind);
 
 			case NOr:
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(formula))
+				return ShadowOfCompoundFormula(formula)
 				    .sort([this](const Formula& f) { return guide_negative(f); })
 				    .for_all([this, &right_sans_formula, &formula](
 				                 auto& subformula) { return sub_prove(left + Singleton<Formula>(subformula), right_sans_formula, unionfind); });
@@ -238,18 +250,18 @@ private:
 			if(!idempotent_symbols.count(first_symbol) && first.size() != second.size())
 				return false;
 
-			const bool first_in_second = Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(first)).for_all([this, &second](const auto& sub1)
+			const bool first_in_second = ShadowOfCompoundFormula(first).for_all([this, &second](const auto& sub1)
 			{
 				auto& parent = *this;
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(second))
+				return ShadowOfCompoundFormula(second)
 				    .sort([&parent, &sub1](const auto& sub2) { return parent.guide_equal(sub1, sub2); })
 				    .for_any([&parent, &sub1](const auto& sub2) { return parent.equal(sub1, sub2); });
 			});
 
-			const bool second_in_first = Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(second)).for_all([this, &first](const auto& sub2)
+			const bool second_in_first = ShadowOfCompoundFormula(second).for_all([this, &first](const auto& sub2)
 			{
 				auto& parent = *this;
-				return Shadow<CompoundFormula>(static_cast<const CompoundFormula&>(first))
+				return ShadowOfCompoundFormula(first)
 				    .sort([&parent, &sub2](const auto& sub1) { return parent.guide_equal(sub2, sub1); })
 				    .for_any([&parent, &sub2](const auto& sub1) { return parent.equal(sub2, sub1); });
 			});
@@ -261,7 +273,7 @@ private:
 			if(first.size() != second.size())
 				return false;
 
-			return Zip<CompoundFormula, CompoundFormula>(static_cast<const CompoundFormula&>(first), static_cast<const CompoundFormula&>(second))
+			return ZipOfCompoundFormula(first, second)
 			    .sort([this](const auto& p) { return -guide_equal(p.first, p.second); })
 			    .for_all([this](const auto& p) { return equal(p.first, p.second); });
 		}
