@@ -24,6 +24,7 @@ using std::string_view;
 using std::vector;
 using std::optional;
 using std::addressof;
+using std::nullptr_t;
 
 
 class Symbol;
